@@ -4,38 +4,24 @@
     <meta charset="UTF-8">
     <title>Mario English Game - Home</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
 
         body {
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
+            height: 100vh; width: 100vw; overflow: hidden;
+            position: relative;
         }
 
-        .wrapper {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
+        .wrapper { width: 100%; height: 100%; }
 
         /* Ảnh nền */
         .bg-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
+            width: 100%; height: 100%; object-fit: cover; display: block;
         }
 
-        /* Nút ĐĂNG NHẬP */
-        .login-btn {
+        /* Nút Chính (Đăng nhập / Vào game) */
+        .action-btn {
             position: absolute;
-            left: 50%;
-            bottom: 60px;         /* chỉnh cao/thấp ở đây */
+            left: 50%; bottom: 60px;
             transform: translateX(-50%);
             border: none;
             padding: 16px 48px;
@@ -45,38 +31,114 @@
             color: #fff;
             cursor: pointer;
             text-transform: uppercase;
+            font-weight: bold;
             letter-spacing: 1px;
-            box-shadow:
-                0 8px 0 #b52000,
-                0 12px 20px rgba(0, 0, 0, 0.5);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 8px 0 #b52000, 0 12px 20px rgba(0, 0, 0, 0.5);
+            transition: all 0.15s ease;
         }
 
-        .login-btn:hover {
+        .action-btn:hover {
             transform: translateX(-50%) translateY(-2px);
-            box-shadow:
-                0 10px 0 #b52000,
-                0 14px 24px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 10px 0 #b52000, 0 14px 24px rgba(0, 0, 0, 0.6);
         }
 
-        .login-btn:active {
+        .action-btn:active {
             transform: translateX(-50%) translateY(4px);
-            box-shadow:
-                0 4px 0 #b52000,
-                0 6px 10px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 0 #b52000, 0 6px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Nút Đăng xuất nhỏ (chỉ hiện khi đã đăng nhập) */
+        .logout-btn {
+            position: absolute;
+            top: 20px; right: 20px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #333;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none; /* Mặc định ẩn */
+        }
+        .logout-btn:hover { background: #ffcccc; }
+
+        /* Hiển thị tên người dùng */
+        .welcome-text {
+            position: absolute;
+            top: 25px; left: 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 2px 2px 0 #000;
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="wrapper">
-        <!-- ĐƯỜNG DẪN ẢNH: sửa lại nếu cần -->
         <img src="home.jpg" alt="Mario background" class="bg-image">
-        <button class="login-btn" onclick="goLogin()">Đăng nhập</button>
+        
+        <div id="welcomeText" class="welcome-text">Xin chào!</div>
+
+        <button id="btnLogout" class="logout-btn" onclick="handleLogout()">Đăng xuất</button>
+
+        <button id="btnAction" class="action-btn" onclick="handleAction()">Đăng nhập</button>
     </div>
 
     <script>
-        function goLogin() {
-            window.location.href = "login.html";
+        // Khi trang web tải xong
+        window.onload = function() {
+            checkLoginStatus();
+        };
+
+        function checkLoginStatus() {
+            // Kiểm tra xem có ID người dùng trong bộ nhớ không (do login.html lưu)
+            const userId = localStorage.getItem("currentUserID");
+            const fullname = localStorage.getItem("fullname");
+            
+            const btnAction = document.getElementById("btnAction");
+            const btnLogout = document.getElementById("btnLogout");
+            const welcomeText = document.getElementById("welcomeText");
+
+            if (userId) {
+                // --- TRƯỜNG HỢP: ĐÃ ĐĂNG NHẬP ---
+                btnAction.textContent = "VÀO GAME"; // Đổi tên nút
+                btnAction.style.background = "#4CAF50"; // Đổi màu xanh cho đẹp (tùy chọn)
+                btnAction.style.boxShadow = "0 8px 0 #2E7D32, 0 12px 20px rgba(0,0,0,0.5)";
+                
+                // Hiện nút đăng xuất và tên
+                btnLogout.style.display = "block";
+                welcomeText.style.display = "block";
+                welcomeText.textContent = "Xin chào, " + fullname;
+            } else {
+                // --- TRƯỜNG HỢP: CHƯA ĐĂNG NHẬP ---
+                btnAction.textContent = "ĐĂNG NHẬP";
+                btnLogout.style.display = "none";
+                welcomeText.style.display = "none";
+            }
+        }
+
+        function handleAction() {
+            const userId = localStorage.getItem("currentUserID");
+            const roleID = localStorage.getItem("roleID");
+
+            if (userId) {
+                // Nếu đã đăng nhập -> Chuyển thẳng vào Menu (không cần đăng nhập lại)
+                if (roleID == 2) {
+                    window.location.href = "teacher-menu.html";
+                } else {
+                    window.location.href = "menu.html";
+                }
+            } else {
+                // Nếu chưa đăng nhập -> Chuyển sang trang Login
+                window.location.href = "login.html";
+            }
+        }
+
+        function handleLogout() {
+            // Xóa sạch thông tin trong bộ nhớ
+            localStorage.clear();
+            // Tải lại trang để cập nhật giao diện
+            location.reload();
         }
     </script>
 </body>

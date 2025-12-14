@@ -3,194 +3,229 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Profile</title>
-
+<title>Hồ Sơ Của Tôi</title>
 <style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Poppins", Arial, sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
 
-    /* Nền giống login/menu */
     body {
-        height: 100vh;
-        width: 100vw;
-        background: url("screen/phongnen.jpg") no-repeat center center fixed; /* đổi lại nếu ảnh tên khác */
+        height: 100vh; width: 100vw;
+        background: url("screen/phongnen.jpg") no-repeat center center fixed;
         background-size: cover;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        display: flex; justify-content: center; align-items: center;
     }
 
-    .overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(255, 255, 255, 0.25);
-    }
+    .overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(2px); }
 
     .profile-card {
-        position: relative;
-        z-index: 1;
-        width: 380px;
-        padding: 24px 26px 18px;
-        border-radius: 18px;
-        background: rgba(255, 245, 210, 0.96);
-        border: 3px solid #ff8c42;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
-        color: #333;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+        position: relative; z-index: 1;
+        width: 420px;
+        padding: 30px;
+        border-radius: 20px;
+        background: rgba(255, 245, 210, 0.98);
+        border: 4px solid #ff8c42;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        display: flex; flex-direction: column; gap: 15px;
     }
 
-    .profile-title {
-        text-align: center;
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: #d13625;
-        text-shadow: 0 2px 0 #ffd76b;
-        text-transform: uppercase;
-        margin-bottom: 8px;
+    /* Phần Avatar */
+    .avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+    
+    .avatar-img {
+        width: 100px; height: 100px;
+        border-radius: 50%;
+        border: 4px solid #fff;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        object-fit: cover;
+        background: #eee;
+    }
+    
+    .username-display {
+        font-size: 1.4rem; font-weight: bold; color: #d13625;
+        margin-top: 10px; text-transform: uppercase;
     }
 
-    .profile-sub {
-        text-align: center;
-        font-size: 0.9rem;
-        color: #553300;
-        margin-bottom: 4px;
+    /* Phần Thống kê điểm */
+    .stats-row {
+        display: flex; justify-content: space-between;
+        background: #fff; border-radius: 12px; padding: 10px 20px;
+        border: 2px dashed #ffcc80; margin-bottom: 5px;
+    }
+    .stat-box { text-align: center; flex: 1; }
+    .stat-label { font-size: 0.8rem; color: #888; font-weight: 600; text-transform: uppercase; }
+    .stat-value { font-size: 1.4rem; font-weight: bold; color: #e65100; }
+
+    /* Các dòng thông tin */
+    .field { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .field-label { font-size: 0.95rem; font-weight: 600; color: #553300; }
+    
+    /* Ô nhập liệu tên */
+    .input-edit {
+        text-align: right; border: 1px solid #ccc; border-radius: 5px;
+        padding: 5px 10px; font-size: 0.95rem; width: 60%;
+        background: #fff; transition: 0.3s;
+    }
+    .input-edit:focus { border-color: #ff8c42; outline: none; background: #fff8e1; }
+    
+    .field-value { font-weight: bold; color: #333; }
+
+    /* Nút bấm */
+    .btn-row { display: flex; justify-content: space-between; margin-top: 15px; }
+    
+    .btn {
+        padding: 10px 20px; border-radius: 25px; border: none; cursor: pointer;
+        font-weight: bold; font-size: 0.95rem; transition: 0.2s;
+        display: flex; align-items: center; gap: 8px;
     }
 
-    .field {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 0;
-        border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
-    }
+    .btn-back { background: #e0e0e0; color: #333; }
+    .btn-back:hover { background: #d6d6d6; transform: translateY(-2px); }
 
-    .field-label {
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: #553300;
-    }
+    .btn-save { background: #4CAF50; color: white; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); }
+    .btn-save:hover { background: #43a047; transform: translateY(-2px); }
 
-    .field-value {
-        font-size: 0.95rem;
-        max-width: 55%;
-        text-align: right;
-        color: #333;
-        word-wrap: break-word;
-    }
-
-    .btn-back {
-        margin-top: 10px;
-        align-self: flex-start;
-        padding: 7px 16px;
-        border-radius: 999px;
-        border: none;
-        background: #ffffff;
-        color: #553300;
-        font-size: 0.9rem;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
-    }
-
-    .btn-back:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
-    }
-
-    .btn-back:active {
-        transform: translateY(2px);
-        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
-    }
-
-    .btn-back span {
-        font-size: 1.1rem;
-    }
-
-    @media (max-width: 480px) {
-        .profile-card {
-            width: 90%;
-        }
-    }
 </style>
 </head>
 <body>
     <div class="overlay"></div>
 
     <div class="profile-card">
-        <div class="profile-title">Profile</div>
-        <div class="profile-sub">Thông tin tài khoản hiện tại</div>
+        <div class="avatar-section">
+            <img src="screen/mario.jpg" alt="Avatar" class="avatar-img" id="imgAvatar" onerror="this.src='screen/mario.jpg'">
+            <div class="username-display" id="valUsername">Loading...</div>
+        </div>
 
-        <div class="field">
-            <div class="field-label">Username</div>
-            <div class="field-value" id="valUsername">—</div>
+        <div class="stats-row">
+            <div class="stat-box" style="border-right: 1px solid #eee;">
+                <div class="stat-label">🏆 Tổng điểm</div>
+                <div class="stat-value" id="valScore">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">⭐ Sao</div>
+                <div class="stat-value" id="valStars">0</div>
+            </div>
         </div>
 
         <div class="field">
-            <div class="field-label">Password</div>
-            <div class="field-value" id="valPassword">—</div>
+            <div class="field-label">Họ và tên</div>
+            <input type="text" class="input-edit" id="inpFullname" value="...">
         </div>
 
         <div class="field">
-            <div class="field-label">Full name</div>
-            <div class="field-value" id="valFullname">—</div>
+            <div class="field-label">Lớp học</div>
+            <div class="field-value" id="valClass">...</div>
         </div>
 
         <div class="field">
-            <div class="field-label">Role</div>
-            <div class="field-value" id="valRole">—</div>
+            <div class="field-label">Vai trò</div>
+            <div class="field-value" id="valRole">...</div>
         </div>
 
-        <div class="field">
-            <div class="field-label">Class</div>
-            <div class="field-value" id="valClass">—</div>
+        <div class="btn-row">
+            <button class="btn btn-back" onclick="goBack()">
+                <span>↩</span> Quay lại
+            </button>
+            <button class="btn btn-save" onclick="saveProfile()">
+                <span>💾</span> Lưu thay đổi
+            </button>
         </div>
-
-        <button class="btn-back" onclick="goBack()">
-            <span>←</span> Quay lại
-        </button>
     </div>
 
 <script>
-    // Lấy dữ liệu từ localStorage (đã set ở login.html)
-    const username  = localStorage.getItem("username")  || localStorage.getItem("currentUser") || "N/A";
-    const password  = localStorage.getItem("password")  || "N/A";
-    const fullname  = localStorage.getItem("fullname")  || "N/A";
-    const roleRaw   = localStorage.getItem("role")      || "N/A";
-    const className = localStorage.getItem("class")     || "N/A";
+    // URL API Backend (Chỉnh lại nếu cổng khác 5000)
+    const API_URL = "http://localhost:5000/api/profile";
 
-    // Chuyển role sang chữ đẹp
-    let roleDisplay = roleRaw;
-    if (roleRaw === "student") roleDisplay = "Student";
-    if (roleRaw === "teacher") roleDisplay = "Teacher";
+    // Lấy UserID từ localStorage (Cần đảm bảo file Login đã lưu cái này)
+    // Lưu ý: Sửa 'currentUserID' thành đúng key mà file login.html của bạn đang lưu ID
+    // Nếu login bạn lưu là 'userID' thì sửa dòng dưới thành localStorage.getItem("userID")
+    const currentUserID = localStorage.getItem("currentUserID"); 
+    const currentUserRole = localStorage.getItem("role"); // Để nút Back biết đường về
 
-    document.getElementById("valUsername").textContent = username;
-    document.getElementById("valPassword").textContent = password;
-    document.getElementById("valFullname").textContent = fullname;
-    document.getElementById("valRole").textContent     = roleDisplay;
-    document.getElementById("valClass").textContent    = className;
-
-    function goBack() {
-        const role = localStorage.getItem("role");
-
-        if (role === "teacher") {
-            window.location.href = "teacher-menu.html";
-        } else if (role === "student") {
-            window.location.href = "menu.html";
-        } else {
-            // phòng trường hợp lỗi, cho về login
+    // === 1. HÀM TẢI THÔNG TIN ===
+    async function loadProfile() {
+        if (!currentUserID) {
+            alert("Bạn chưa đăng nhập! Quay về trang login.");
             window.location.href = "login.html";
+            return;
+        }
+
+        try {
+            // Gọi API lấy dữ liệu
+            const response = await fetch(`${API_URL}/${currentUserID}`);
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+
+                // Điền dữ liệu vào giao diện
+                document.getElementById("valUsername").textContent = data.Username;
+                document.getElementById("inpFullname").value = data.FullName; // Ô input
+                document.getElementById("valClass").textContent = data.ClassName || "Chưa có lớp";
+                document.getElementById("valRole").textContent = data.RoleName;
+
+                // Điền Avatar (Nếu DB null thì dùng ảnh mặc định)
+                if (data.AvatarURL) {
+                    document.getElementById("imgAvatar").src = data.AvatarURL;
+                }
+
+                // Điền thống kê (Mặc định là 0 nếu null)
+                document.getElementById("valScore").textContent = data.LifetimeScore || 0;
+                document.getElementById("valStars").textContent = data.LifetimeStars || 0;
+            } else {
+                alert("Không tìm thấy thông tin người dùng!");
+            }
+        } catch (error) {
+            console.error("Lỗi:", error);
+            alert("Lỗi kết nối Server! Hãy kiểm tra lại backend.");
         }
     }
-</script>
 
+    // === 2. HÀM LƯU THAY ĐỔI ===
+    async function saveProfile() {
+        const newName = document.getElementById("inpFullname").value;
+
+        if (!newName.trim()) {
+            alert("Tên không được để trống!");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/update/${currentUserID}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    fullName: newName,
+                    // Nếu sau này muốn sửa Avatar thì thêm: avatarUrl: "link_anh_moi"
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                alert("✅ Cập nhật thành công!");
+                // Cập nhật lại localStorage để các trang khác hiển thị đúng tên mới
+                localStorage.setItem("fullname", newName);
+            } else {
+                alert("❌ Cập nhật thất bại: " + result.message);
+            }
+
+        } catch (error) {
+            console.error("Lỗi update:", error);
+            alert("Lỗi khi lưu dữ liệu!");
+        }
+    }
+
+    // === 3. HÀM QUAY LẠI ===
+    function goBack() {
+        if (currentUserRole === "teacher") {
+            window.location.href = "teacher-menu.html";
+        } else {
+            window.location.href = "menu.html";
+        }
+    }
+
+    // Tự động chạy khi mở trang
+    loadProfile();
+</script>
 
 </body>
 </html>

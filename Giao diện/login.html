@@ -3,138 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Đăng nhập</title>
+<title>Đăng nhập Hệ thống</title>
 
 <style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Poppins", Arial, sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
 
-    /* Nền là ảnh mờ */
     body {
-        height: 100vh;
-        width: 100vw;
-        background: url("screen/phongnen.jpg") no-repeat center center fixed; /* ĐỔI TÊN ẢNH NẾU CẦN */
+        height: 100vh; width: 100vw;
+        background: url("screen/phongnen.jpg") no-repeat center center fixed;
         background-size: cover;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        display: flex; justify-content: center; align-items: center;
     }
 
-    /* Lớp phủ nhẹ cho ảnh bớt chói, KHÔNG đen */
-    .overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(255, 255, 255, 0.25);
-    }
+    .overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.25); }
 
-    /* Khung đăng nhập phong cách Mario, tông vàng-cam */
     .login-card {
-        position: relative;
-        z-index: 1;
-        width: 360px;
-        padding: 24px 28px 18px;
-        border-radius: 18px;
-        background: rgba(255, 245, 210, 0.95); /* vàng nhạt */
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
-        color: #333;
-        border: 3px solid #ff8c42;            /* viền cam */
+        position: relative; z-index: 1; width: 360px;
+        padding: 30px; border-radius: 18px;
+        background: rgba(255, 245, 210, 0.95);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        border: 3px solid #ff8c42;
     }
 
     .login-card h1 {
-        text-align: center;
-        margin-bottom: 18px;
-        font-size: 1.8rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: #d13625;
-        text-shadow: 0 2px 0 #ffd76b;
+        text-align: center; margin-bottom: 20px; font-size: 1.8rem;
+        color: #d13625; text-transform: uppercase; text-shadow: 0 2px 0 #ffd76b;
     }
 
-    label {
-        display: block;
-        margin: 8px 0 4px;
-        font-size: 0.95rem;
-        color: #553300;
-    }
+    label { display: block; margin: 10px 0 5px; font-weight: bold; color: #553300; }
 
-    input[type="text"],
-    input[type="password"] {
-        width: 100%;
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 2px solid #ffb347;
-        outline: none;
-        font-size: 1rem;
-        margin-bottom: 8px;
-        background: #fffaf0;
+    input {
+        width: 100%; padding: 12px; border-radius: 10px;
+        border: 2px solid #ffb347; outline: none; font-size: 1rem;
+        background: #fffaf0; transition: 0.2s;
     }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus {
-        border-color: #ff7a29;
-        box-shadow: 0 0 0 2px rgba(255, 122, 41, 0.25);
-    }
+    input:focus { border-color: #ff7a29; background: #fff; }
 
     .login-btn {
-        margin-top: 8px;
-        width: 100%;
-        padding: 10px 0;
-        border-radius: 999px;
-        border: none;
-        background: #ff4b3a;
-        box-shadow: 0 6px 0 #c53120;
-        color: #fff;
-        font-size: 1.05rem;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        margin-top: 20px; width: 100%; padding: 12px;
+        border-radius: 50px; border: none;
+        background: #ff4b3a; color: white; font-weight: bold; font-size: 1.1rem;
+        cursor: pointer; box-shadow: 0 5px 0 #c53120; transition: 0.1s;
     }
+    .login-btn:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #c53120; }
+    .login-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c53120; }
+    .login-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
 
-    .login-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 0 #c53120;
-    }
+    .message { min-height: 20px; margin-top: 10px; font-size: 0.9rem; text-align: center; }
+    .message.error { color: #d32f2f; font-weight: bold; }
+    .message.info { color: #0288d1; }
 
-    .login-btn:active {
-        transform: translateY(3px);
-        box-shadow: 0 3px 0 #c53120;
-    }
-
-    .message {
-        min-height: 20px;
-        margin-top: 6px;
-        font-size: 0.9rem;
-    }
-
-    .message.error {
-        color: #d8000c;
-    }
-
-    .message.info {
-        color: #9f6000;
-    }
-
-    .links {
-        margin-top: 10px;
-        font-size: 0.9rem;
-        color: #553300;
-    }
-
-    .link {
-        cursor: pointer;
-        text-decoration: underline;
-        margin-top: 4px;
-    }
-
-    .link:hover {
-        color: #d13625;
-    }
+    .links { margin-top: 15px; text-align: center; font-size: 0.9rem; }
+    .link { cursor: pointer; text-decoration: underline; color: #553300; margin-top: 5px; }
+    .link:hover { color: #d13625; }
 </style>
-
 </head>
 <body>
 
@@ -143,115 +65,104 @@
 <div class="login-card">
     <h1>Đăng nhập</h1>
 
-    <!-- Thông báo (sai tài khoản / thông tin hướng dẫn) -->
     <div id="message" class="message"></div>
 
-    <form onsubmit="handleLogin(event)">
+    <form>
         <label for="username">Tên đăng nhập</label>
-        <input type="text" id="username" autocomplete="username" required>
+        <input type="text" id="username" required placeholder="Nhập tên đăng nhập..." value="student1">
 
         <label for="password">Mật khẩu</label>
-        <input type="password" id="password" autocomplete="current-password" required>
+        <input type="password" id="password" required placeholder="Nhập mật khẩu..." value="student">
 
-        <button type="submit" class="login-btn">Bắt đầu</button>
+        <button type="button" class="login-btn" id="btnLogin" onclick="handleLogin()">BẮT ĐẦU</button>
     </form>
 
     <div class="links">
-        <p class="link" onclick="showNoAccount()">Bạn chưa có tài khoản?</p>
-        <p class="link" onclick="showForgot()">Quên mật khẩu?</p>
-        <p class="link" onclick="goBack()">Quay lại</p>
+        <p class="link" onclick="showMessage('Liên hệ GVCN để cấp lại!')">Quên mật khẩu?</p>
+        <p class="link" onclick="location.href='home.html'">Quay lại trang chủ</p>
     </div>
 </div>
 
 <script>
-/*
-    DEMO TÀI KHOẢN
-    ----------------
-    Mật khẩu mặc định cho tất cả: 123456
-    - Học sinh:
-        5A01, 5A02, 5A03
-        5B01, 5B02, 5B03
-        5C01, 5C02, 5C03
-        5D01, 5D02, 5D03
-    - Giáo viên:
-        GV5A, GV5B, GV5C, GV5D
-*/
+    async function handleLogin() {
+        // 1. Lấy giá trị input
+        const usernameIn = document.getElementById("username").value.trim();
+        const passwordIn = document.getElementById("password").value.trim();
+        const msgBox = document.getElementById("message");
+        const btn = document.getElementById("btnLogin");
 
-const accounts = [
-    // Lớp 5A
-    { username: "vuviethoang", password: "123456", role: "student", fullName: "Vu Viet Hoang", className: "5A" },
-    { username: "5A02", password: "123456", role: "student", fullName: "Học sinh 2 - 5A", className: "5A" },
-    { username: "5A03", password: "123456", role: "student", fullName: "Học sinh 3 - 5A", className: "5A" },
-    { username: "GV5A", password: "123456", role: "teacher", fullName: "Giáo viên chủ nhiệm 5A", className: "5A" },
+        // Kiểm tra rỗng
+        if (!usernameIn || !passwordIn) {
+            msgBox.textContent = "Vui lòng nhập đầy đủ thông tin!";
+            msgBox.className = "message error";
+            return;
+        }
 
-    // Lớp 5B
-    { username: "5B01", password: "123456", role: "student", fullName: "Học sinh 1 - 5B", className: "5B" },
-    { username: "5B02", password: "123456", role: "student", fullName: "Học sinh 2 - 5B", className: "5B" },
-    { username: "5B03", password: "123456", role: "student", fullName: "Học sinh 3 - 5B", className: "5B" },
-    { username: "GV5B", password: "123456", role: "teacher", fullName: "Giáo viên chủ nhiệm 5B", className: "5B" },
+        // 2. Reset trạng thái
+        msgBox.textContent = "⏳ Đang kết nối...";
+        msgBox.className = "message info";
+        btn.disabled = true;
 
-    // Lớp 5C
-    { username: "5C01", password: "123456", role: "student", fullName: "Học sinh 1 - 5C", className: "5C" },
-    { username: "5C02", password: "123456", role: "student", fullName: "Học sinh 2 - 5C", className: "5C" },
-    { username: "5C03", password: "123456", role: "student", fullName: "Học sinh 3 - 5C", className: "5C" },
-    { username: "GV5C", password: "123456", role: "teacher", fullName: "Giáo viên chủ nhiệm 5C", className: "5C" },
+        try {
+            // 3. GỌI API (Đảm bảo cổng 5000 là đúng với server.js)
+            const response = await fetch("http://localhost:5000/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    username: usernameIn, 
+                    password: passwordIn 
+                })
+            });
 
-    // Lớp 5D
-    { username: "5D01", password: "123456", role: "student", fullName: "Học sinh 1 - 5D", className: "5D" },
-    { username: "5D02", password: "123456", role: "student", fullName: "Học sinh 2 - 5D", className: "5D" },
-    { username: "5D03", password: "123456", role: "student", fullName: "Học sinh 3 - 5D", className: "5D" },
-    { username: "GV5D", password: "123456", role: "teacher", fullName: "Giáo viên chủ nhiệm 5D", className: "5D" }
-];
+            const data = await response.json();
 
-function handleLogin(event) {
-    event.preventDefault();
+            // 4. Xử lý kết quả trả về từ Server
+            if (data.success) {
+                // --- ĐĂNG NHẬP THÀNH CÔNG ---
+                
+                // Lưu vào LocalStorage (Sửa lại để khớp với dữ liệu Server trả về)
+                // Server trả về: userId, fullName, role (là số ID)
+                localStorage.setItem("currentUserID", data.userId); 
+                localStorage.setItem("username", usernameIn);
+                localStorage.setItem("fullname", data.fullName);
+                localStorage.setItem("roleID", data.role); 
 
-    const userInput = document.getElementById("username").value.trim();
-    const passInput = document.getElementById("password").value.trim();
-    const messageBox = document.getElementById("message");
+                msgBox.textContent = "✅ " + data.message;
+                msgBox.className = "message"; 
 
-    const account = accounts.find(acc => acc.username === userInput);
+                // Chuyển trang sau 1 giây
+                setTimeout(() => {
+                    // Giả sử RoleID = 2 là Giáo viên (dựa trên file SQL cũ)
+                    // Nếu RoleID = 3 là Học sinh
+                    if (data.role == 2) { 
+                        window.location.href = "teacher-menu.html";
+                    } else {
+                        // Mặc định cho học sinh
+                        window.location.href = "menu.html";
+                    }
+                }, 1000);
 
-    if (!account || account.password !== passInput) {
-        messageBox.textContent = "Tên đăng nhập hoặc mật khẩu không đúng.";
-        messageBox.className = "message error";
-        return;
+            } else {
+                // --- SAI TÀI KHOẢN / MẬT KHẨU ---
+                msgBox.textContent = "❌ " + data.message;
+                msgBox.className = "message error";
+                btn.disabled = false;
+            }
+
+        } catch (error) {
+            // --- LỖI MẤT MẠNG HOẶC SERVER CHẾT ---
+            console.error(error);
+            msgBox.textContent = "⚠️ Lỗi kết nối Server! Hãy kiểm tra Node.js";
+            msgBox.className = "message error";
+            btn.disabled = false;
+        }
     }
 
-    // Lưu thông tin người dùng hiện tại để các màn khác sử dụng
-    localStorage.setItem("currentUser", account.username);
-    localStorage.setItem("username", account.username);
-    localStorage.setItem("password", account.password);
-    localStorage.setItem("fullname", account.fullName);
-    localStorage.setItem("class", account.className);
-    localStorage.setItem("role", account.role); // "student" hoặc "teacher"
-
-    messageBox.textContent = "";
-    messageBox.className = "message";
-
-     // Chuyển trang theo vai trò
-    if (account.role === "teacher") {
-        window.location.href = "teacher-menu.html";
-    } else {
-        window.location.href = "menu.html";
+    function showMessage(text) {
+        const msgBox = document.getElementById("message");
+        msgBox.textContent = text;
+        msgBox.className = "message info";
     }
-}
-
-function showNoAccount() {
-    const messageBox = document.getElementById("message");
-    messageBox.textContent = "Hãy liên hệ với giáo viên chủ nhiệm để được cấp tài khoản.";
-    messageBox.className = "message info";
-}
-
-function showForgot() {
-    const messageBox = document.getElementById("message");
-    messageBox.textContent = "Hãy liên hệ với giáo viên chủ nhiệm cấp lại mật khẩu.";
-    messageBox.className = "message info";
-}
-
-function goBack() {
-    window.location.href = "home.html";
-}
 </script>
 
 </body>

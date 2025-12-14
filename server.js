@@ -1,79 +1,98 @@
 const express = require('express');
-const sql = require('mssql');
 const cors = require('cors');
+const sql = require('mssql');
 
 const app = express();
-app.use(cors()); // Cho phép web (frontend) gọi vào server này
+const PORT = 5000; // Giữ nguyên port 5000
 
-// === CẤU HÌNH KẾT NỐI DATABASE ===
-const dbConfig= {
+app.use(cors()); 
+app.use(express.json());
+
+// 1. Cấu hình kết nối SQL Server
+const dbConfig = {
     user: 'GameUser',
     password: '123456',
-    
-    // 1. Chỉ điền tên máy tính vào đây
-    server: 'DESKTOP-HRMHVJB', 
-    
+    server: 'DESKTOP-HRMHVJB\\SQLEXPRESS',
     database: 'GameHocTiengAnh1',
-    
     options: {
-        encrypt: false, 
-        trustServerCertificate: true,
-        // 2. Điền tên instance vào đây (SQLEXPRESS)
-        instanceName: 'SQLEXPRESS' 
+        encrypt: false,
+        trustServerCertificate: true
     }
-    // LƯU Ý: Khi dùng instanceName, KHÔNG cần khai báo port: 1433 
-    // (Trừ khi bạn đã cố định port trong SQL Config Manager)
 };
 
-// === 2. API TỪ VỰNG (Đã sửa lỗi nhận nhầm Unit 1 thành Unit 10) ===
-app.get('/api/vocab/:unitId', async (req, res) => {
+// Kết nối Database ngay khi bật Server
+async function connectDB() {
     try {
-        const unitId = req.params.unitId;
-        const pool = await sql.connect(dbConfig);
-        
-        // SỬA LỖI: Thêm dấu hai chấm ":" vào sau số Unit
-        // Để khi tìm "Unit 1:", nó sẽ không bị nhầm sang "Unit 10:", "Unit 11:"
-        const topicPattern = 'Unit ' + unitId + ':%'; 
-
-        const result = await pool.request()
-            .input('TopicParam', sql.NVarChar, topicPattern)
-            .query(`
-                SELECT Word, Meaning, Pronunciation, Example, WordType 
-                FROM Vocabulary 
-                WHERE TopicID = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE @TopicParam)
-            `);
-
-        res.json(result.recordset);
+        await sql.connect(dbConfig);
+        console.log("✅ Đã kết nối SQL Server thành công!");
     } catch (err) {
-        console.error('Lỗi Vocab:', err);
-        res.status(500).send(err.message);
+        console.log("❌ Lỗi kết nối SQL Server:", err);
+    }
+}
+connectDB();
+
+// PHẦN 1: API ĐĂNG NHẬP (ĐÃ SỬA LỖI TREO)
+// =============================================================
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    console.log(`📡 Đang kiểm tra đăng nhập: ${username}`); // Log 1: Đã nhận lệnh
+
+    try {
+        // --- SỬA Ở ĐÂY: KHÔNG gọi sql.connect() nữa ---
+        // Thay vào đó, dùng new sql.Request() để dùng luôn kết nối đang có
+        const request = new sql.Request(); 
+        
+        request.input('u', sql.NVarChar, username);
+        request.input('p', sql.NVarChar, password);
+        
+        const result = await request.query('SELECT * FROM Users WHERE Username = @u AND PasswordHash = @p');
+        
+        console.log("🏁 Đã truy vấn xong Database"); // Log 2: Đã hỏi xong (Nếu thấy dòng này là ngon)
+
+        if (result.recordset.length > 0) {
+            const user = result.recordset[0];
+            console.log("✅ Đăng nhập thành công:", user.Username);
+            res.json({ 
+                success: true, 
+                message: "Đăng nhập thành công!",
+                role: user.RoleID,
+                fullName: user.FullName,
+                userId: user.UserID
+            });
+        } else {
+            console.log("❌ Sai mật khẩu hoặc tài khoản");
+            res.status(401).json({ success: false, message: "Sai tên đăng nhập hoặc mật khẩu!" });
+        }
+    } catch (err) {
+        console.error("❌ Lỗi khi hỏi Database:", err);
+        res.status(500).json({ success: false, message: "Lỗi Server nội bộ" });
     }
 });
-// === 3. API NGỮ PHÁP ===
-app.get('/api/grammar/:unitId', async (req, res) => {
-    try {
-        const unitId = req.params.unitId;
-        const pool = await sql.connect(dbConfig);
-        
-        const topicPattern = 'Unit ' + unitId + ':%'; // Thêm dấu hai chấm tương tự
+// =============================================================
+// PHẦN 2: KẾT NỐI CÁC ROUTE KHÁC (Đã mở lại)
+// =============================================================
 
-        const result = await pool.request()
-            .input('TopicParam', sql.NVarChar, topicPattern)
-            .query(`
-                SELECT GrammarName, Structure, Usage, Example
-                FROM Grammar 
-                WHERE TopicID = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE @TopicParam)
-            `);
+// 2.1 Route cho Profile (Thông tin cá nhân)
+// Đường dẫn gốc sẽ là: http://localhost:5000/api/profile
+try {
+    const profileRoutes = require('./routes/profileRoutes');
+    app.use('/api/profile', profileRoutes);
+    console.log("✅ Đã nạp module Profile");
+} catch (error) {
+    console.error("⚠️ Chưa tìm thấy file profileRoutes, bỏ qua module này.");
+}
 
-        res.json(result.recordset);
-    } catch (err) {
-        console.error('Lỗi Grammar:', err);
-        res.status(500).send(err.message);
-    }
-});
+// 2.2 Route cho Review (Học tập - Từ vựng & Ngữ pháp)
+// Đường dẫn gốc sẽ là: http://localhost:5000/api/review
+try {
+    const reviewRoutes = require('./routes/reviewRoutes');
+    app.use('/api/review', reviewRoutes);
+    console.log("✅ Đã nạp module Review");
+} catch (error) {
+    console.error("⚠️ Chưa tìm thấy file reviewRoutes, bỏ qua module này.");
+}
 
 // === KHỞI ĐỘNG SERVER ===
-const PORT = 5000;
 app.listen(PORT, () => {
-    console.log(`Server Backend đang chạy tại: http://localhost:${PORT}`);
+    console.log(`🚀 Server Backend đang chạy tại: http://localhost:${PORT}`);
 });
