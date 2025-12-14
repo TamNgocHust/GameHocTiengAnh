@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Menu</title>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", Arial, sans-serif;
+    }
+
+    /* Nền mờ giống login */
+    body {
+        margin: 0;
+        height: 100vh;
+        width: 100vw;
+        background: url("screen/phongnen.jpg") no-repeat center center fixed; /* đổi tên ảnh nếu khác */
+        background-size: cover;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Hiển thị username + logout góc trên phải */
+    .top-right {
+        position: fixed;
+        top: 15px;
+        right: 20px;
+        background: rgba(255, 245, 210, 0.95);
+        padding: 8px 16px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        color: #553300;
+        border: 2px solid #ffb347;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+        z-index: 2;
+    }
+
+    .username-label {
+        font-weight: 600;
+    }
+
+    .logout-btn {
+        cursor: pointer;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: none;
+        background: #ff4b3a;
+        color: #fff;
+        font-size: 0.85rem;
+        box-shadow: 0 3px 0 #c53120;
+        text-transform: uppercase;
+    }
+
+    .logout-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 0 #c53120;
+    }
+
+    .logout-btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #c53120;
+    }
+
+    /* Khung menu chính */
+    .menu-card {
+        position: relative;
+        z-index: 1;
+        width: 380px;
+        padding: 24px 24px 18px;
+        border-radius: 18px;
+        background: rgba(255, 245, 210, 0.96);
+        border: 3px solid #ff8c42;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        color: #333;
+    }
+
+    .menu-title {
+        text-align: center;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #d13625;
+        text-shadow: 0 2px 0 #ffd76b;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .menu-sub {
+        text-align: center;
+        font-size: 0.9rem;
+        color: #553300;
+        margin-bottom: 4px;
+    }
+
+    /* Nút lớn Play */
+    .btn-play {
+        width: 100%;
+        padding: 14px 0;
+        border-radius: 14px;
+        border: none;
+        background: #ff4b3a;
+        box-shadow: 0 6px 0 #c53120;
+        color: #fff;
+        font-size: 1.2rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .btn-play:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 0 #c53120;
+    }
+
+    .btn-play:active {
+        transform: translateY(3px);
+        box-shadow: 0 3px 0 #c53120;
+    }
+
+    /* Các nút còn lại dạng lưới 2x2 */
+    .menu-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .menu-btn {
+        padding: 14px 0;
+        border-radius: 14px;
+        border: none;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: #fff;
+        text-transform: uppercase;
+    }
+
+    .btn-review      { background: #3eb13e; box-shadow: 0 5px 0 #287427; }
+    .btn-leaderboard { background: #3b82f6; box-shadow: 0 5px 0 #1e4fb8; }
+    .btn-history     { background: #f59e0b; box-shadow: 0 5px 0 #b56a00; }
+    .btn-profile     { background: #ec4899; box-shadow: 0 5px 0 #b72b6f; }
+
+    .menu-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 7px 0 rgba(0,0,0,0.25);
+    }
+
+    .menu-btn:active {
+        transform: translateY(3px);
+        box-shadow: 0 3px 0 rgba(0,0,0,0.25);
+    }
+
+    @media (max-width: 480px) {
+        .menu-card {
+            width: 90%;
+        }
+    }
+</style>
+</head>
+
+<body>
+    <div class="overlay"></div>
+
+    <!-- Góc phải: tên đăng nhập + logout -->
+    <div class="top-right">
+        <span class="username-label" id="showUser">User</span>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Khung menu học sinh -->
+    <div class="menu-card">
+        <div class="menu-title">Student Menu</div>
+        
+        <button class="btn-play" onclick="goPlay()">Play</button>
+
+        <div class="menu-grid">
+            <button class="menu-btn btn-review" onclick="goReview()">Review</button>
+            <button class="menu-btn btn-leaderboard" onclick="goLeader()">Leaderboard</button>
+            <button class="menu-btn btn-history" onclick="goHistory()">History</button>
+            <button class="menu-btn btn-profile" onclick="goProfile()">Profile</button>
+        </div>
+
+       
+    </div>
+
+<script>
+    // Lấy tên đăng nhập đã lưu khi login
+    const user = localStorage.getItem("currentUser");
+    document.getElementById("showUser").textContent = user ? user : "User";
+
+    function logout() {
+        localStorage.removeItem("currentUser");
+        localStorage.removeItem("role");
+        window.location.href = "login.html";
+    }
+
+    function goPlay() {
+        window.location.href = "play.html";      
+    }
+
+    function goReview() {
+        
+        window.location.href = "review.html";
+    }
+
+    function goLeader() {
+        window.location.href = "leaderboard.html";
+    }
+
+    function goHistory() {
+        window.location.href = "history.html";
+    }
+
+    function goProfile() {
+        window.location.href = "profile.html";
+    }
+</script>
+
+</body>
+</html>

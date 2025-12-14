@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Ôn Tập Từ Vựng - Ngữ Pháp</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", Arial, sans-serif; }
+    
+    body {
+        background: url("screen/phongnen.jpg") no-repeat center center fixed; 
+        background-size: cover;
+        display: flex; justify-content: center; align-items: center;
+        min-height: 100vh; padding: 20px;
+    }
+
+    .overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.4); z-index: 0;}
+
+    /* Card Chính */
+    .review-card {
+        position: relative; z-index: 1;
+        width: 1200px; max-width: 95vw; height: 90vh;
+        background: rgba(255, 245, 210, 0.98);
+        border: 4px solid #ff8c42; border-radius: 20px;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        display: flex; flex-direction: column; padding: 20px;
+    }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .title { font-size: 1.8rem; font-weight: bold; color: #d13625; text-transform: uppercase; }
+    
+    select { 
+        padding: 8px 15px; font-size: 1rem; border-radius: 10px; 
+        border: 2px solid #ff8c42; outline: none; background: #fff; cursor: pointer;
+    }
+
+    /* Nội dung chia 2 cột */
+    .content-wrapper { display: flex; gap: 20px; flex: 1; overflow: hidden; }
+    
+    .panel {
+        flex: 1; background: #fff; border-radius: 15px; padding: 15px;
+        display: flex; flex-direction: column;
+        border: 2px solid #ffe0b2;
+        overflow: hidden; /* Để scroll bên trong */
+    }
+
+    .panel-header {
+        font-size: 1.2rem; font-weight: bold; color: #e65100;
+        margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px dashed #ffe0b2;
+        display: flex; align-items: center; gap: 8px;
+    }
+
+    .scroll-area { flex: 1; overflow-y: auto; padding-right: 5px; }
+
+    /* Bảng Từ Vựng */
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th { background: #fff3e0; position: sticky; top: 0; padding: 10px; text-align: left; color: #e65100; z-index: 2;}
+    td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+    
+    .word-text { font-weight: bold; color: #d84315; font-size: 1.05rem; }
+    .word-type { font-size: 0.8rem; color: #888; font-style: italic; }
+    .example-text { font-style: italic; color: #555; background: #f9f9f9; padding: 4px; border-radius: 4px; display: block; margin-top: 4px; font-size: 0.9rem;}
+
+    /* Thẻ Ngữ Pháp */
+    .grammar-box {
+        background: #fff8e1; border-left: 5px solid #ffb74d;
+        padding: 12px; margin-bottom: 15px; border-radius: 5px;
+    }
+    .gm-name { font-weight: bold; color: #bf360c; font-size: 1.1rem; margin-bottom: 5px; }
+    .gm-label { font-weight: bold; color: #ef6c00; font-size: 0.9rem; margin-top: 8px; display: block;}
+    .gm-content { color: #333; line-height: 1.4; white-space: pre-line; }
+    .gm-example { background: #fff; padding: 8px; border-radius: 5px; border: 1px dashed #ccc; margin-top: 5px; color: #2e7d32; font-weight: 500;}
+
+    /* Nút và User */
+    .top-user { position: absolute; top: -50px; right: 0; background: #fff; padding: 8px 20px; border-radius: 20px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.2);}
+    .btn-back { margin-top: 15px; align-self: flex-start; padding: 10px 25px; background: #ff8c42; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 1rem;}
+    .btn-back:hover { background: #f57c00; }
+
+</style>
+</head>
+<body>
+
+    <div class="overlay"></div>
+
+    <div class="review-card">
+        <div class="top-user">User: <span id="showUser" style="color:#d84315">...</span></div>
+
+        <div class="header">
+            <div class="title">ÔN TẬP KIẾN THỨC</div>
+            <select id="unitSelect" onchange="loadAllData()">
+                <option value="">-- Chọn bài học --</option>
+                <option value="1">Unit 1: All about me!</option>
+                <option value="2">Unit 2: Our homes</option>
+                <option value="3">Unit 3: My foreign friends</option>
+                <option value="4">Unit 4: Our free-time activities</option>
+                <option value="5">Unit 5: My future job</option>
+                <option value="6">Unit 6: Our school rooms</option>
+                <option value="7">Unit 7: Our favourite school activities</option>
+                <option value="8">Unit 8: In our classroom</option>
+                <option value="9">Unit 9: Our outdoor activities</option>
+                <option value="10">Unit 10: Our school trip</option>
+                <option value="11">Unit 11: Family time</option>
+                <option value="12">Unit 12: Our Tet Holiday</option>
+                <option value="13">Unit 13: Our special days</option>
+                <option value="14">Unit 14: Staying healthy</option>
+                <option value="15">Unit 15: Our health</option>
+                <option value="16">Unit 16: Seasons and the weather</option>
+                <option value="17">Unit 17: Stories for children</option>
+                <option value="18">Unit 18: Means of transport</option>
+                <option value="19">Unit 19: Places of interest</option>
+                <option value="20">Unit 20: Our summer holidays</option>
+            </select>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="panel">
+                <div class="panel-header">📚 TỪ VỰNG (VOCABULARY)</div>
+                <div class="scroll-area" id="vocabContent">
+                    <p style="text-align:center; color:#888; margin-top:20px">Vui lòng chọn Unit để xem...</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">✏️ NGỮ PHÁP (GRAMMAR)</div>
+                <div class="scroll-area" id="grammarContent">
+                    <p style="text-align:center; color:#888; margin-top:20px">Vui lòng chọn Unit để xem...</p>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-back" onclick="location.href='menu.html'">← Quay lại Menu</button>
+    </div>
+
+<script>
+    // 1. Hiển thị User
+    const user = localStorage.getItem("currentUser");
+    document.getElementById("showUser").textContent = user ? user : "Khách";
+
+    // 2. Hàm gọi API tổng hợp
+    async function loadAllData() {
+        const unitId = document.getElementById("unitSelect").value;
+        const vocabDiv = document.getElementById("vocabContent");
+        const grammarDiv = document.getElementById("grammarContent");
+
+        if (!unitId) return;
+
+        // Hiện loading
+        vocabDiv.innerHTML = '<p style="text-align:center; color:blue">⏳ Đang tải từ vựng...</p>';
+        grammarDiv.innerHTML = '<p style="text-align:center; color:blue">⏳ Đang tải ngữ pháp...</p>';
+
+        try {
+            // --- GỌI API TỪ VỰNG ---
+            const resVocab = await fetch(`http://localhost:5000/api/vocab/${unitId}`);
+            const dataVocab = await resVocab.json();
+            renderVocab(dataVocab);
+
+            // --- GỌI API NGỮ PHÁP ---
+            const resGrammar = await fetch(`http://localhost:5000/api/grammar/${unitId}`);
+            const dataGrammar = await resGrammar.json();
+            renderGrammar(dataGrammar);
+
+        } catch (error) {
+            console.error(error);
+            alert("Lỗi kết nối Server! Bạn hãy kiểm tra lại Node.js");
+        }
+    }
+
+    // 3. Hàm vẽ bảng Từ Vựng
+    function renderVocab(data) {
+        const container = document.getElementById("vocabContent");
+        if (data.length === 0) {
+            container.innerHTML = '<p style="text-align:center">Chưa có dữ liệu từ vựng.</p>';
+            return;
+        }
+
+        let html = `<table>
+            <thead>
+                <tr>
+                    <th width="30%">Từ vựng</th>
+                    <th width="30%">Nghĩa</th>
+                    <th>Ví dụ</th>
+                </tr>
+            </thead>
+            <tbody>`;
+        
+        data.forEach(item => {
+            html += `
+                <tr>
+                    <td>
+                        <div class="word-text">${item.Word}</div>
+                        <div class="word-type">${item.WordType || ''}</div>
+                        <div style="font-size:0.85rem">${item.Pronunciation || ''}</div>
+                    </td>
+                    <td>${item.Meaning}</td>
+                    <td>
+                        <span class="example-text">"${item.Example || ''}"</span>
+                    </td>
+                </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    // 4. Hàm vẽ danh sách Ngữ Pháp
+    function renderGrammar(data) {
+        const container = document.getElementById("grammarContent");
+        if (data.length === 0) {
+            container.innerHTML = '<p style="text-align:center">Chưa có dữ liệu ngữ pháp.</p>';
+            return;
+        }
+
+        let html = '';
+        data.forEach(item => {
+            html += `
+                <div class="grammar-box">
+                    <div class="gm-name">${item.GrammarName}</div>
+                    
+                    <span class="gm-label">Cấu trúc:</span>
+                    <div class="gm-content" style="color:#d32f2f; font-weight:bold">${item.Structure}</div>
+
+                    <span class="gm-label">Cách dùng:</span>
+                    <div class="gm-content">${item.Usage}</div>
+
+                    <span class="gm-label">Ví dụ:</span>
+                    <div class="gm-example">${item.Example}</div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile</title>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", Arial, sans-serif;
+    }
+
+    /* Nền giống login/menu */
+    body {
+        height: 100vh;
+        width: 100vw;
+        background: url("screen/phongnen.jpg") no-repeat center center fixed; /* đổi lại nếu ảnh tên khác */
+        background-size: cover;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    .profile-card {
+        position: relative;
+        z-index: 1;
+        width: 380px;
+        padding: 24px 26px 18px;
+        border-radius: 18px;
+        background: rgba(255, 245, 210, 0.96);
+        border: 3px solid #ff8c42;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        color: #333;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .profile-title {
+        text-align: center;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #d13625;
+        text-shadow: 0 2px 0 #ffd76b;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .profile-sub {
+        text-align: center;
+        font-size: 0.9rem;
+        color: #553300;
+        margin-bottom: 4px;
+    }
+
+    .field {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+    }
+
+    .field-label {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #553300;
+    }
+
+    .field-value {
+        font-size: 0.95rem;
+        max-width: 55%;
+        text-align: right;
+        color: #333;
+        word-wrap: break-word;
+    }
+
+    .btn-back {
+        margin-top: 10px;
+        align-self: flex-start;
+        padding: 7px 16px;
+        border-radius: 999px;
+        border: none;
+        background: #ffffff;
+        color: #553300;
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-back:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+    }
+
+    .btn-back:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-back span {
+        font-size: 1.1rem;
+    }
+
+    @media (max-width: 480px) {
+        .profile-card {
+            width: 90%;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="overlay"></div>
+
+    <div class="profile-card">
+        <div class="profile-title">Profile</div>
+        <div class="profile-sub">Thông tin tài khoản hiện tại</div>
+
+        <div class="field">
+            <div class="field-label">Username</div>
+            <div class="field-value" id="valUsername">—</div>
+        </div>
+
+        <div class="field">
+            <div class="field-label">Password</div>
+            <div class="field-value" id="valPassword">—</div>
+        </div>
+
+        <div class="field">
+            <div class="field-label">Full name</div>
+            <div class="field-value" id="valFullname">—</div>
+        </div>
+
+        <div class="field">
+            <div class="field-label">Role</div>
+            <div class="field-value" id="valRole">—</div>
+        </div>
+
+        <div class="field">
+            <div class="field-label">Class</div>
+            <div class="field-value" id="valClass">—</div>
+        </div>
+
+        <button class="btn-back" onclick="goBack()">
+            <span>←</span> Quay lại
+        </button>
+    </div>
+
+<script>
+    // Lấy dữ liệu từ localStorage (đã set ở login.html)
+    const username  = localStorage.getItem("username")  || localStorage.getItem("currentUser") || "N/A";
+    const password  = localStorage.getItem("password")  || "N/A";
+    const fullname  = localStorage.getItem("fullname")  || "N/A";
+    const roleRaw   = localStorage.getItem("role")      || "N/A";
+    const className = localStorage.getItem("class")     || "N/A";
+
+    // Chuyển role sang chữ đẹp
+    let roleDisplay = roleRaw;
+    if (roleRaw === "student") roleDisplay = "Student";
+    if (roleRaw === "teacher") roleDisplay = "Teacher";
+
+    document.getElementById("valUsername").textContent = username;
+    document.getElementById("valPassword").textContent = password;
+    document.getElementById("valFullname").textContent = fullname;
+    document.getElementById("valRole").textContent     = roleDisplay;
+    document.getElementById("valClass").textContent    = className;
+
+    function goBack() {
+        const role = localStorage.getItem("role");
+
+        if (role === "teacher") {
+            window.location.href = "teacher-menu.html";
+        } else if (role === "student") {
+            window.location.href = "menu.html";
+        } else {
+            // phòng trường hợp lỗi, cho về login
+            window.location.href = "login.html";
+        }
+    }
+</script>
+
+
+</body>
+</html>
