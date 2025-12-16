@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Round 1: Word Matching - Mushroom Kingdom</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+
+    body {
+        height: 100vh; width: 100vw; background: #000;
+        display: flex; justify-content: center; align-items: center; overflow: hidden;
+        background-image: url('screen/mushroom.jpg'); 
+        background-size: cover; background-position: center;
+    }
+
+    .bg-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 0; }
+    .overlay-ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+
+    .top-right {
+        position: absolute; top: 15px; right: 20px;
+        background: rgba(255, 245, 210, 0.95); padding: 8px 16px; border-radius: 999px;
+        display: flex; align-items: center; gap: 12px; border: 2px solid #ffb347;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); pointer-events: auto;
+    }
+
+    .username-label { font-weight: 600; color: #553300; }
+    
+    .logout-btn {
+        cursor: pointer; padding: 4px 10px; border-radius: 999px; border: none;
+        background: #ff4b3a; color: #fff; font-size: 0.85rem;
+        box-shadow: 0 3px 0 #c53120; text-transform: uppercase;
+    }
+    .logout-btn:hover { transform: translateY(-1px); }
+    .logout-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c53120; }
+
+    .bottom-left { position: absolute; left: 20px; bottom: 15px; pointer-events: auto; }
+    .btn-back {
+        padding: 7px 16px; border-radius: 999px; border: none;
+        background: #ffffff; color: #553300; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 6px;
+        box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+    }
+    .btn-back:hover { transform: translateY(-1px); }
+
+    /* --- GAME BOARD --- */
+    #gameWrapper {
+        position: relative; z-index: 10;
+        width: 1000px; max-width: 95vw; height: 80vh;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 20px; border: 6px solid #ff8c42;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    .game-header {
+        height: 70px; background: #ffecb3;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 30px; border-bottom: 3px solid #ffd54f;
+    }
+
+    .game-title { font-size: 1.5rem; font-weight: 700; color: #d84315; }
+
+    .game-stats {
+        font-size: 1.1rem; font-weight: 600; color: #553300;
+        display: flex; gap: 20px;
+    }
+    .stat-box span { color: #d32f2f; font-weight: 700; }
+
+    /* --- KHU VỰC NỐI TỪ --- */
+    .matching-area {
+        flex: 1; display: flex; padding: 20px; gap: 40px;
+        overflow-y: auto; justify-content: center;
+    }
+
+    .column {
+        flex: 1; display: flex; flex-direction: column;
+        gap: 12px; max-width: 400px;
+    }
+
+    .col-header {
+        text-align: center; font-weight: 700; color: #795548;
+        margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;
+    }
+
+    .card {
+        background: #fff; border: 2px solid #ddd; border-bottom: 4px solid #ccc;
+        border-radius: 12px; padding: 15px; text-align: center;
+        font-size: 1rem; font-weight: 600; color: #333;
+        cursor: pointer; transition: all 0.2s; user-select: none;
+    }
+
+    .card:hover { transform: translateY(-2px); border-color: #ffb74d; background: #fff8e1; }
+    .card:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+    .card.selected {
+        background: #ffeb3b; border-color: #fbc02d; border-bottom-color: #f9a825;
+        color: #000; transform: scale(1.02);
+    }
+
+    .card.matched {
+        background: #81c784; border-color: #4caf50; border-bottom-color: #388e3c;
+        color: #fff; cursor: default; opacity: 0.6; pointer-events: none;
+        animation: popIn 0.3s;
+    }
+
+    .card.wrong {
+        background: #ef5350; border-color: #d32f2f; color: #fff;
+        animation: shake 0.4s;
+    }
+
+    @keyframes shake {
+        0% { transform: translateX(0); } 25% { transform: translateX(-5px); }
+        50% { transform: translateX(5px); } 75% { transform: translateX(-5px); }
+        100% { transform: translateX(0); }
+    }
+
+    @keyframes popIn {
+        0% { transform: scale(0.8); } 50% { transform: scale(1.1); } 100% { transform: scale(1); }
+    }
+
+    #loadingOverlay, #resultOverlay {
+        position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+        z-index: 20; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; text-align: center;
+    }
+    
+    .hidden { display: none !important; }
+
+    .result-box {
+        background: #fff; padding: 30px 50px; border-radius: 20px;
+        border: 4px solid #ff8c42; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .result-title { font-size: 2rem; color: #d84315; margin-bottom: 15px; }
+    .result-score { font-size: 1.5rem; color: #333; margin-bottom: 10px; }
+    .result-time { font-size: 1.2rem; color: #555; margin-bottom: 25px; font-style: italic;}
+    
+    .btn-next {
+        padding: 12px 30px; background: #4caf50; color: white;
+        border: none; border-radius: 50px; font-size: 1.1rem;
+        font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #2e7d32;
+    }
+    .btn-next:hover { transform: translateY(-2px); }
+
+</style>
+</head>
+<body>
+
+<div class="bg-overlay"></div>
+
+<div class="overlay-ui">
+    <div class="top-right">
+        <span class="username-label" id="showUser">User</span>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    <div class="bottom-left">
+        <button class="btn-back" onclick="goBack()">
+            <span>←</span> Menu
+        </button>
+    </div>
+</div>
+
+<div id="gameWrapper">
+    <div class="game-header">
+        <div class="game-title">🍄 Round 1: Nối từ vựng</div>
+        <div class="game-stats">
+            <div class="stat-box">Ghép đúng: <span id="matchCount">0</span>/10</div>
+            <div class="stat-box">Điểm: <span id="scoreDisplay">10</span></div>
+            <div class="stat-box">Còn lại: <span id="timerDisplay">02:00</span></div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <h2>Đang tải dữ liệu từ vựng...</h2>
+        <p>Vui lòng đợi trong giây lát</p>
+    </div>
+
+    <div class="matching-area" id="board">
+        <div class="column" id="colLeft">
+            <div class="col-header">Tiếng Anh</div>
+        </div>
+        <div class="column" id="colRight">
+            <div class="col-header">Tiếng Việt</div>
+        </div>
+    </div>
+
+    <div id="resultOverlay" class="hidden">
+        <div class="result-box">
+            <div class="result-title" id="resultTitle">Hoàn thành!</div>
+            <div class="result-score" id="resultMsg">Bạn đạt ... điểm</div>
+            <div class="result-time" id="resultTime">Thời gian: 00:00</div>
+            <button class="btn-next" onclick="goToNextRound()" id="btnNext">Tiếp tục</button>
+            <button class="btn-next" onclick="location.reload()" id="btnRetry" style="background:#ff9800; display:none">Thử lại</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============ CẤU HÌNH & TRẠNG THÁI ============
+    const API_URL = 'http://localhost:5000/api/game/round1';
+    const SUBMIT_URL = 'http://localhost:5000/api/game/submit-round1';
+    
+    // CẤU HÌNH THỜI GIAN: 120 giây (2 phút)
+    const GAME_DURATION = 120;
+
+    let leftSelected = null;
+    let rightSelected = null;
+    let matchesFound = 0;
+    let totalPairs = 10;
+    let currentScore = 10;
+    let userAnswers = [];
+    
+    // --- BIẾN THỜI GIAN ---
+    let timerInterval;
+    let timeLeft = GAME_DURATION; // Đếm ngược
+
+    // ============ XỬ LÝ USER ============
+    const userId = localStorage.getItem("currentUserID");
+    const username = localStorage.getItem("username");
+    const fullname = localStorage.getItem("fullname");
+
+    if (!userId) {
+        alert("Bạn chưa đăng nhập! Vui lòng đăng nhập lại.");
+        window.location.href = "login.html";
+    }
+
+    const displayUser = fullname && fullname !== "null" ? fullname : username;
+    document.getElementById("showUser").textContent = displayUser || "User";
+
+    function logout() {
+        if(confirm("Bạn muốn thoát game?")) {
+            localStorage.clear();
+            window.location.href = "login.html";
+        }
+    }
+
+    function goBack() {
+        window.location.href = "menu.html";
+    }
+
+    // ============ LOGIC THỜI GIAN (ĐẾM NGƯỢC) ============
+    function startTimer() {
+        timeLeft = GAME_DURATION;
+        updateTimerDisplay();
+        
+        clearInterval(timerInterval); // Reset nếu có
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+            
+            // Hết giờ
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                alert("Hết giờ! Trò chơi kết thúc.");
+                submitGame(); // Nộp bài ngay lập tức
+            }
+        }, 1000);
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        const formattedTime = 
+            (minutes < 10 ? "0" + minutes : minutes) + ":" + 
+            (seconds < 10 ? "0" + seconds : seconds);
+        
+        const timerEl = document.getElementById("timerDisplay");
+        timerEl.textContent = formattedTime;
+
+        // Đổi màu đỏ khi còn dưới 10 giây
+        if (timeLeft < 10) {
+            timerEl.style.color = "red";
+        } else {
+            timerEl.style.color = "#d32f2f";
+        }
+    }
+
+    // Hàm format thời gian để hiển thị kết quả (Thời gian ĐÃ CHƠI)
+    function formatTimeUsed(secondsUsed) {
+        const m = Math.floor(secondsUsed / 60).toString().padStart(2, '0');
+        const s = (secondsUsed % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    // ============ LOGIC GAME ============
+
+    async function initGame() {
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+
+            if(data.success) {
+                totalPairs = data.totalPairs;
+                renderBoard(data.data);
+                document.getElementById("loadingOverlay").classList.add("hidden");
+                
+                // BẮT ĐẦU ĐẾM NGƯỢC
+                startTimer();
+            } else {
+                alert("Lỗi tải dữ liệu: " + data.message);
+            }
+
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Không kết nối được tới server! (Kiểm tra xem server đã bật chưa)");
+        }
+    }
+
+    function renderBoard(gameData) {
+        const colLeft = document.getElementById("colLeft");
+        const colRight = document.getElementById("colRight");
+
+        gameData.leftColumn.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.textContent = item.text;
+            card.dataset.id = item.id; 
+            card.dataset.side = "left";
+            card.onclick = () => handleCardClick(card, "left");
+            colLeft.appendChild(card);
+        });
+
+        gameData.rightColumn.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.textContent = item.text;
+            card.dataset.id = item.id;
+            card.dataset.side = "right";
+            card.onclick = () => handleCardClick(card, "right");
+            colRight.appendChild(card);
+        });
+    }
+
+    function handleCardClick(card, side) {
+        if (card.classList.contains("matched")) return;
+
+        if (side === "left") {
+            if (leftSelected) leftSelected.classList.remove("selected");
+            leftSelected = card;
+            card.classList.add("selected");
+        } else {
+            if (rightSelected) rightSelected.classList.remove("selected");
+            rightSelected = card;
+            card.classList.add("selected");
+        }
+
+        if (leftSelected && rightSelected) {
+            checkMatch();
+        }
+    }
+
+    function checkMatch() {
+        const leftId = parseInt(leftSelected.dataset.id);
+        const rightId = parseInt(rightSelected.dataset.id);
+
+        userAnswers.push({ leftId: leftId, rightId: rightId });
+
+        if (leftId === rightId) {
+            handleCorrect();
+        } else {
+            handleWrong();
+        }
+    }
+
+    function handleCorrect() {
+        leftSelected.classList.remove("selected");
+        rightSelected.classList.remove("selected");
+        
+        leftSelected.classList.add("matched");
+        rightSelected.classList.add("matched");
+
+        leftSelected = null;
+        rightSelected = null;
+
+        matchesFound++;
+        document.getElementById("matchCount").textContent = matchesFound;
+
+        if (matchesFound === totalPairs) {
+            // Dừng đồng hồ
+            stopTimer();
+            setTimeout(submitGame, 500); 
+        }
+    }
+
+    function handleWrong() {
+        const l = leftSelected;
+        const r = rightSelected;
+
+        l.classList.add("wrong");
+        r.classList.add("wrong");
+        
+        currentScore--;
+        if(currentScore < 0) currentScore = 0;
+        document.getElementById("scoreDisplay").textContent = currentScore;
+
+        setTimeout(() => {
+            l.classList.remove("selected", "wrong");
+            r.classList.remove("selected", "wrong");
+            leftSelected = null;
+            rightSelected = null;
+        }, 500);
+    }
+
+    async function submitGame() {
+        // TÍNH THỜI GIAN ĐÃ CHƠI = TỔNG THỜI GIAN - THỜI GIAN CÒN LẠI
+        const timeUsed = GAME_DURATION - timeLeft;
+
+        try {
+            const payload = {
+                userId: userId,
+                answers: userAnswers,
+                timeTaken: timeUsed // Gửi thời gian thực tế đã chơi
+            };
+
+            const response = await fetch(SUBMIT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            showResult(result, timeUsed);
+
+        } catch (error) {
+            console.error("Lỗi nộp bài:", error);
+            // Fallback nếu lỗi mạng
+            showResult({
+                success: true,
+                score: currentScore
+            }, timeUsed);
+        }
+    }
+
+    function showResult(result, timeUsed) {
+        const overlay = document.getElementById("resultOverlay");
+        const title = document.getElementById("resultTitle");
+        const msg = document.getElementById("resultMsg");
+        const timeMsg = document.getElementById("resultTime");
+        const btnNext = document.getElementById("btnNext");
+        const btnRetry = document.getElementById("btnRetry");
+
+        overlay.classList.remove("hidden");
+        
+        let finalScore = currentScore; 
+        if (result && result.score !== undefined && result.score !== null) {
+            finalScore = result.score;
+        }
+
+        const passed = finalScore >= 5;
+        
+        // Hiển thị thời gian hoàn thành (Đã tính toán ở trên)
+        timeMsg.textContent = `Thời gian hoàn thành: ${formatTimeUsed(timeUsed)}`;
+
+        if (passed) {
+            title.textContent = "🎉 CHÚC MỪNG!";
+            title.style.color = "#4caf50";
+            msg.textContent = `Bạn đạt ${finalScore} điểm. Mở khóa màn 2!`;
+            btnNext.style.display = "inline-block";
+            btnRetry.style.display = "none";
+        } else {
+            title.textContent = "😓 CỐ GẮNG LÊN!";
+            title.style.color = "#d32f2f";
+            msg.textContent = `Bạn chỉ đạt ${finalScore} điểm. Cần tối thiểu 5 điểm.`;
+            btnNext.style.display = "none";
+            btnRetry.style.display = "inline-block";
+        }
+    }
+
+    function goToNextRound() {
+        window.location.href = "round2.html"; 
+    }
+
+    window.onload = initGame;
+</script>
+
+</body>
+</html>

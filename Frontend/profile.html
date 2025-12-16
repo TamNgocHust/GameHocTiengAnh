@@ -100,8 +100,8 @@
                 <div class="stat-value" id="valScore">0</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">⭐ Sao</div>
-                <div class="stat-value" id="valStars">0</div>
+                <div class="stat-label">⏱️ Tổng thời gian</div>
+                <div class="stat-value" id="valTime">00:00</div>
             </div>
         </div>
 
@@ -134,11 +134,17 @@
     // URL API Backend (Chỉnh lại nếu cổng khác 5000)
     const API_URL = "http://localhost:5000/api/profile";
 
-    // Lấy UserID từ localStorage (Cần đảm bảo file Login đã lưu cái này)
-    // Lưu ý: Sửa 'currentUserID' thành đúng key mà file login.html của bạn đang lưu ID
-    // Nếu login bạn lưu là 'userID' thì sửa dòng dưới thành localStorage.getItem("userID")
+    // Lấy UserID từ localStorage
     const currentUserID = localStorage.getItem("currentUserID"); 
-    const currentUserRole = localStorage.getItem("role"); // Để nút Back biết đường về
+    const currentUserRole = localStorage.getItem("role");
+
+    // --- HÀM FORMAT THỜI GIAN (Giây -> MM:SS) ---
+    function formatTime(seconds) {
+        if (!seconds || seconds < 0) return "00:00";
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
 
     // === 1. HÀM TẢI THÔNG TIN ===
     async function loadProfile() {
@@ -158,18 +164,23 @@
 
                 // Điền dữ liệu vào giao diện
                 document.getElementById("valUsername").textContent = data.Username;
-                document.getElementById("inpFullname").value = data.FullName; // Ô input
+                document.getElementById("inpFullname").value = data.FullName; 
                 document.getElementById("valClass").textContent = data.ClassName || "Chưa có lớp";
                 document.getElementById("valRole").textContent = data.RoleName;
 
-                // Điền Avatar (Nếu DB null thì dùng ảnh mặc định)
+                // Điền Avatar 
                 if (data.AvatarURL) {
                     document.getElementById("imgAvatar").src = data.AvatarURL;
                 }
 
-                // Điền thống kê (Mặc định là 0 nếu null)
+                // Điền thống kê
                 document.getElementById("valScore").textContent = data.LifetimeScore || 0;
-                document.getElementById("valStars").textContent = data.LifetimeStars || 0;
+                
+                // --- SỬA LOGIC HIỂN THỊ THỜI GIAN ---
+                // Server có thể trả về LifetimeTime hoặc TotalTime tùy backend
+                const totalSeconds = data.LifetimeTime || data.TotalTime || 0;
+                document.getElementById("valTime").textContent = formatTime(totalSeconds);
+
             } else {
                 alert("Không tìm thấy thông tin người dùng!");
             }
@@ -193,8 +204,7 @@
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
-                    fullName: newName,
-                    // Nếu sau này muốn sửa Avatar thì thêm: avatarUrl: "link_anh_moi"
+                    fullName: newName
                 })
             });
 
@@ -202,7 +212,6 @@
             
             if (result.success) {
                 alert("✅ Cập nhật thành công!");
-                // Cập nhật lại localStorage để các trang khác hiển thị đúng tên mới
                 localStorage.setItem("fullname", newName);
             } else {
                 alert("❌ Cập nhật thất bại: " + result.message);

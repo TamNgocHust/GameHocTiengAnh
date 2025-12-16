@@ -133,8 +133,27 @@
 
 <script>
     // 1. Hiển thị User
-    const user = localStorage.getItem("currentUser");
-    document.getElementById("showUser").textContent = user ? user : "Khách";
+    // 1. Hiển thị User (ĐÃ SỬA LẠI CHO ĐÚNG KEY)
+    // Lấy thông tin từ các key chuẩn
+    const userId = localStorage.getItem("currentUserID");
+    const fullname = localStorage.getItem("fullname");
+    const username = localStorage.getItem("username");
+
+    // Logic hiển thị tên ưu tiên: Fullname -> Username -> "Khách"
+    let displayUser = "Khách";
+    if (fullname && fullname !== "null" && fullname !== "undefined") {
+        displayUser = fullname;
+    } else if (username) {
+        displayUser = username;
+    }
+
+    // Hiển thị lên màn hình
+    document.getElementById("showUser").textContent = displayUser;
+
+    // Kiểm tra bảo mật (Nếu chưa đăng nhập thì đá về login - Tùy chọn)
+    if (!userId) {
+        // window.location.href = "login.html"; // Bỏ comment dòng này nếu muốn bắt buộc đăng nhập
+    }
 
     // 2. Hàm gọi API tổng hợp
     async function loadAllData() {

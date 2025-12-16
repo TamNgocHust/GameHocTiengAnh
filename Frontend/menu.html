@@ -11,6 +11,7 @@
     /* Nền mờ giống login */
     body {
         margin: 0; height: 100vh; width: 100vw;
+        /* Đảm bảo bạn có file ảnh này trong thư mục screen */
         background: url("screen/phongnen.jpg") no-repeat center center fixed;
         background-size: cover;
         display: flex; justify-content: center; align-items: center;
@@ -116,23 +117,23 @@
     
     // Chạy ngay khi trang tải xong
     window.onload = function() {
-        // 1. Lấy dữ liệu đúng tên key từ login.html (currentUserID, fullname, username)
+        // 1. Lấy dữ liệu đúng tên key từ login.html
         const userId = localStorage.getItem("currentUserID");
         const fullname = localStorage.getItem("fullname");
         const username = localStorage.getItem("username");
 
-        // 2. Bảo mật: Nếu chưa đăng nhập (không có ID) -> Đuổi về trang login ngay
+        // 2. Bảo mật: Nếu chưa đăng nhập -> Đuổi về login
         if (!userId) {
             window.location.href = "login.html";
             return;
         }
 
-        // 3. Hiển thị tên: Ưu tiên Tên đầy đủ -> Tên đăng nhập
+        // 3. Hiển thị tên
         const displayLabel = document.getElementById("showUser");
         if (fullname && fullname !== "null" && fullname !== "undefined") {
-            displayLabel.textContent = fullname; // Hiện: Nguyễn Văn Phát
+            displayLabel.textContent = fullname; 
         } else if (username) {
-            displayLabel.textContent = username; // Hiện: student1 (nếu ko có tên thật)
+            displayLabel.textContent = username; 
         } else {
             displayLabel.textContent = "Học sinh";
         }
@@ -140,15 +141,18 @@
 
     function logout() {
         if(confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-            // Xóa sạch bộ nhớ localStorage
             localStorage.clear();
-            // Quay về trang chủ (home) thay vì login để flow mượt hơn
-            window.location.href = "home.html";
+            // Đã sửa: Quay về login.html thay vì home.html
+            window.location.href = "login.html";
         }
     }
 
-    // Các hàm chuyển trang
-    function goPlay() { window.location.href = "play.html"; }
+    // --- ĐÃ SỬA ĐƯỜNG DẪN TẠI ĐÂY ---
+    function goPlay() { 
+        // Dẫn tới file round1.html thay vì play.html
+        window.location.href = "round1.html"; 
+    }
+
     function goReview() { window.location.href = "review.html"; }
     function goLeader() { window.location.href = "leaderboard.html"; }
     function goHistory() { window.location.href = "history.html"; }

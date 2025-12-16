@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Round 2: Sentence Scramble - Mushroom Kingdom</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+    /* --- GIỮ NGUYÊN STYLE CƠ BẢN --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+    body {
+        height: 100vh; width: 100vw; background: #000;
+        display: flex; justify-content: center; align-items: center; overflow: hidden;
+        background-image: url('screen/mushroom.jpg'); 
+        background-size: cover; background-position: center;
+    }
+    .bg-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 0; }
+    .overlay-ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+    
+    /* User Info */
+    .top-right {
+        position: absolute; top: 15px; right: 20px;
+        background: rgba(255, 245, 210, 0.95); padding: 8px 16px; border-radius: 999px;
+        display: flex; align-items: center; gap: 12px; border: 2px solid #ffb347;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); pointer-events: auto;
+    }
+    .username-label { font-weight: 600; color: #553300; }
+    .logout-btn { cursor: pointer; padding: 4px 10px; border-radius: 999px; border: none; background: #ff4b3a; color: #fff; font-size: 0.85rem; box-shadow: 0 3px 0 #c53120; text-transform: uppercase; }
+    .logout-btn:hover { transform: translateY(-1px); }
+    .logout-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c53120; }
+
+    /* Back Button */
+    .bottom-left { position: absolute; left: 20px; bottom: 15px; pointer-events: auto; }
+    .btn-back { padding: 7px 16px; border-radius: 999px; border: none; background: #ffffff; color: #553300; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
+    .btn-back:hover { transform: translateY(-1px); }
+
+    /* --- GAME BOARD --- */
+    #gameWrapper {
+        position: relative; z-index: 10;
+        width: 1000px; max-width: 95vw; height: 80vh;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px; border: 6px solid #42a5ff;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    .game-header {
+        height: 70px; background: #e3f2fd;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 30px; border-bottom: 3px solid #90caf9;
+    }
+
+    .game-title { font-size: 1.5rem; font-weight: 700; color: #1565c0; }
+    .game-stats { font-size: 1.1rem; font-weight: 600; color: #0d47a1; display: flex; gap: 20px; }
+    .stat-box span { color: #d32f2f; font-weight: 700; }
+
+    /* --- KHU VỰC GAME --- */
+    .scramble-area {
+        flex: 1; display: flex; flex-direction: column;
+        padding: 30px; gap: 20px; align-items: center;
+        overflow-y: auto;
+    }
+
+    .question-progress { font-size: 1.2rem; font-weight: 700; color: #555; margin-bottom: 10px; }
+
+    .answer-zone {
+        width: 100%; min-height: 80px;
+        background: #fff; border: 3px dashed #bbb; border-radius: 15px;
+        display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+        padding: 15px; gap: 10px; transition: all 0.3s;
+    }
+    .answer-zone.correct { border-color: #4caf50; background: #e8f5e9; }
+    .answer-zone.wrong { border-color: #f44336; background: #ffebee; animation: shake 0.4s; }
+
+    .word-bank {
+        width: 100%; display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 12px; padding: 20px;
+        background: #f5f5f5; border-radius: 15px;
+    }
+
+    .word-chip {
+        background: #fff; border: 2px solid #2196f3; border-bottom: 4px solid #1976d2;
+        border-radius: 10px; padding: 10px 20px;
+        font-size: 1.2rem; font-weight: 600; color: #333;
+        cursor: pointer; user-select: none; transition: all 0.2s;
+    }
+    .word-chip:hover { transform: translateY(-2px); background: #e3f2fd; }
+    .word-chip:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+    .action-area { margin-top: auto; display: flex; gap: 15px; }
+    .btn-action { padding: 12px 30px; font-size: 1.1rem; font-weight: bold; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+    .btn-check { background: #ff9800; box-shadow: 0 4px 0 #e65100; }
+    .btn-check:hover { transform: translateY(-2px); }
+    .btn-check:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
+
+    #loadingOverlay, #resultOverlay {
+        position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+        z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    }
+    .hidden { display: none !important; }
+
+    .result-box {
+        background: #fff; padding: 30px 50px; border-radius: 20px;
+        border: 4px solid #42a5ff; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .result-title { font-size: 2rem; color: #1565c0; margin-bottom: 15px; }
+    .result-score { font-size: 1.5rem; color: #333; margin-bottom: 10px; }
+    .result-time { font-size: 1.2rem; color: #555; margin-bottom: 25px; font-style: italic;}
+    .btn-home { background: #2196f3; color: white; padding: 12px 30px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+</style>
+</head>
+<body>
+
+<div class="bg-overlay"></div>
+
+<div class="overlay-ui">
+    <div class="top-right">
+        <span class="username-label" id="showUser">User</span>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    <div class="bottom-left">
+        <button class="btn-back" onclick="goBack()"><span>←</span> Menu</button>
+    </div>
+</div>
+
+<div id="gameWrapper">
+    <div class="game-header">
+        <div class="game-title">🌊 Round 2: Trật tự câu</div>
+        <div class="game-stats">
+            <div class="stat-box">Câu: <span id="questionCount">1</span>/10</div>
+            <div class="stat-box">Điểm: <span id="scoreDisplay">0</span></div>
+            <div class="stat-box">Còn lại: <span id="timerDisplay">03:00</span></div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <h2>Đang tải câu hỏi...</h2>
+        <p>Chuẩn bị kiến thức ngữ pháp nhé!</p>
+    </div>
+
+    <div class="scramble-area" id="gameArea">
+        <div class="question-progress" id="progressText">Câu hỏi 1 / 10</div>
+        <div class="answer-zone" id="answerZone"></div> 
+        <div class="word-bank" id="wordBank"></div>
+        <div class="action-area">
+            <button class="btn-action btn-check" id="btnCheck" onclick="checkAnswer()">Kiểm tra</button>
+        </div>
+    </div>
+
+    <div id="resultOverlay" class="hidden">
+        <div class="result-box">
+            <div class="result-title" id="resultTitle">Hoàn thành!</div>
+            <div class="result-score" id="resultMsg">Tổng điểm: ...</div>
+            <div class="result-time" id="resultTime">Thời gian: ...</div>
+            <button class="btn-home" onclick="goBack()">Về Menu chính</button>
+            <button class="btn-home" onclick="location.reload()" style="background:#ff9800; margin-left:10px">Chơi lại</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============ CONFIG ============
+    const API_URL = 'http://localhost:5000/api/game/round2';
+    const SUBMIT_URL = 'http://localhost:5000/api/game/submit-round2';
+    
+    // CẤU HÌNH THỜI GIAN: 180 giây (3 phút)
+    const GAME_DURATION = 180; 
+
+    // ============ STATE ============
+    let sentencesData = [];
+    let currentQuestionIndex = 0;
+    let currentScore = 0;
+    let currentWords = [];
+    let userArrangement = [];
+    
+    let timerInterval;
+    let timeLeft = GAME_DURATION; // Biến đếm ngược
+
+    // ============ USER CHECK ============
+    const userId = localStorage.getItem("currentUserID");
+    const fullname = localStorage.getItem("fullname");
+    const username = localStorage.getItem("username");
+
+    if (!userId) {
+        alert("Vui lòng đăng nhập lại!");
+        window.location.href = "login.html";
+    }
+    document.getElementById("showUser").textContent = (fullname && fullname !== "null") ? fullname : username;
+
+    function logout() {
+        if(confirm("Thoát game?")) { localStorage.clear(); window.location.href = "login.html"; }
+    }
+    function goBack() { window.location.href = "menu.html"; }
+
+    // --- HÀM TIMER ĐẾM NGƯỢC ---
+    function startTimer() {
+        timeLeft = GAME_DURATION; // Reset về 180s
+        updateTimerDisplay();
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                alert("Hết giờ! Trò chơi kết thúc.");
+                finishGame(); // Hết giờ thì tự động kết thúc
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+        const s = (timeLeft % 60).toString().padStart(2, '0');
+        document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+        
+        // Hiệu ứng màu đỏ khi sắp hết giờ (< 10s)
+        if (timeLeft < 10) {
+            document.getElementById("timerDisplay").style.color = "red";
+        } else {
+            document.getElementById("timerDisplay").style.color = "#d32f2f";
+        }
+    }
+
+    function stopTimer() { clearInterval(timerInterval); }
+
+    // ============ LOGIC CHÍNH ============
+
+    async function initGame() {
+        try {
+            console.log("Fetching data from:", API_URL);
+            const res = await fetch(API_URL);
+            
+            if (!res.ok) {
+                throw new Error(`Server Error: ${res.status} ${res.statusText}`);
+            }
+
+            const data = await res.json();
+            console.log("Data received:", data);
+
+            if (data.success) {
+                if (!data.data || data.data.length === 0) {
+                    alert("Lỗi: Server trả về danh sách câu hỏi rỗng! Hãy kiểm tra Database.");
+                    return;
+                }
+
+                sentencesData = data.data; 
+                currentQuestionIndex = 0;
+                currentScore = 0;
+                
+                document.getElementById("loadingOverlay").classList.add("hidden");
+                
+                // Bắt đầu đếm ngược ngay khi tải xong
+                startTimer();
+                
+                loadQuestion(currentQuestionIndex);
+            } else {
+                alert("Server báo lỗi: " + data.message);
+            }
+        } catch (e) {
+            console.error("CHI TIẾT LỖI:", e);
+            alert("Lỗi kết nối hoặc xử lý dữ liệu!\nChi tiết: " + e.message + "\n(Hãy mở Console F12 để xem kỹ hơn)");
+        }
+    }
+
+    function shuffle(array) {
+        return array.sort(() => Math.random() - 0.5);
+    }
+
+    function loadQuestion(index) {
+        if (!sentencesData[index]) {
+            console.error("Không tìm thấy câu hỏi tại index:", index);
+            return;
+        }
+
+        const sentenceObj = sentencesData[index];
+        const rawContent = sentenceObj.OptionContent || sentenceObj.optionContent;
+
+        if (!rawContent) {
+            alert(`Lỗi dữ liệu câu hỏi số ${index + 1}: Không tìm thấy nội dung câu!`);
+            return;
+        }
+
+        const fullSentence = rawContent.trim();
+        const cleanSentence = fullSentence.replace(/[.!?]$/, ''); 
+        let words = cleanSentence.split(/\s+/);
+        
+        sentencesData[index].correctString = cleanSentence;
+
+        currentWords = shuffle([...words]); 
+        userArrangement = [];
+
+        document.getElementById("progressText").textContent = `Câu hỏi ${index + 1} / ${sentencesData.length}`;
+        document.getElementById("questionCount").textContent = index + 1;
+
+        document.getElementById("answerZone").className = "answer-zone";
+        document.getElementById("btnCheck").disabled = false;
+        
+        renderZones();
+    }
+
+    function renderZones() {
+        const answerZone = document.getElementById("answerZone");
+        const wordBank = document.getElementById("wordBank");
+        
+        answerZone.innerHTML = "";
+        wordBank.innerHTML = "";
+
+        if (userArrangement.length === 0) {
+            const placeholder = document.createElement("span");
+            placeholder.textContent = "Chọn từ bên dưới để xếp thành câu...";
+            placeholder.style.color = "#999";
+            placeholder.style.fontStyle = "italic";
+            placeholder.style.pointerEvents = "none";
+            answerZone.appendChild(placeholder);
+        } else {
+            userArrangement.forEach((word, idx) => {
+                const chip = createChip(word, () => moveToBank(idx));
+                answerZone.appendChild(chip);
+            });
+        }
+
+        currentWords.forEach((word, idx) => {
+            const chip = createChip(word, () => moveToAnswer(idx));
+            wordBank.appendChild(chip);
+        });
+    }
+
+    function createChip(text, onClickHandler) {
+        const div = document.createElement("div");
+        div.className = "word-chip";
+        div.textContent = text;
+        div.onclick = onClickHandler;
+        return div;
+    }
+
+    function moveToAnswer(bankIndex) {
+        const word = currentWords[bankIndex];
+        currentWords.splice(bankIndex, 1);
+        userArrangement.push(word);
+        renderZones();
+    }
+
+    function moveToBank(ansIndex) {
+        const word = userArrangement[ansIndex];
+        userArrangement.splice(ansIndex, 1);
+        currentWords.push(word);
+        renderZones();
+    }
+
+    function checkAnswer() {
+        const btnCheck = document.getElementById("btnCheck");
+        const answerZone = document.getElementById("answerZone");
+
+        const userString = userArrangement.join(" ");
+        const correctString = sentencesData[currentQuestionIndex].correctString;
+
+        btnCheck.disabled = true;
+
+        if (userString === correctString) {
+            answerZone.classList.add("correct");
+            currentScore += 1; 
+            document.getElementById("scoreDisplay").textContent = currentScore;
+            
+            setTimeout(() => { nextQuestion(); }, 1000);
+        } else {
+            answerZone.classList.add("wrong");
+            setTimeout(() => { nextQuestion(); }, 1500);
+        }
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < sentencesData.length) {
+            loadQuestion(currentQuestionIndex);
+        } else {
+            finishGame();
+        }
+    }
+
+    async function finishGame() {
+        stopTimer();
+        
+        // Tính thời gian đã dùng = Tổng thời gian (180s) - Thời gian còn lại
+        const timeUsed = GAME_DURATION - timeLeft;
+        const m = Math.floor(timeUsed / 60).toString().padStart(2, '0');
+        const s = (timeUsed % 60).toString().padStart(2, '0');
+        const formattedTime = `${m}:${s}`;
+
+        const title = document.getElementById("resultTitle");
+        const msg = document.getElementById("resultMsg");
+        const timeMsg = document.getElementById("resultTime");
+
+        const isPassed = currentScore >= 5;
+        title.textContent = isPassed ? "🎉 HOÀN THÀNH!" : "😢 CỐ GẮNG HƠN!";
+        title.style.color = isPassed ? "#1565c0" : "#d32f2f";
+        
+        // --- CHỈNH SỬA: Chỉ hiện Điểm và Thời gian (Bỏ Sao) ---
+        msg.textContent = `Tổng điểm: ${currentScore}/10`;
+        timeMsg.textContent = `Thời gian hoàn thành: ${formattedTime}`;
+
+        document.getElementById("resultOverlay").classList.remove("hidden");
+
+        try {
+            // Gửi dữ liệu về Server (Đã bỏ cột stars)
+            await fetch(SUBMIT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentId: userId,
+                    score: currentScore,
+                    timeTaken: timeUsed // Gửi thời gian thực tế đã chơi
+                })
+            });
+            console.log("Đã lưu kết quả Round 2.");
+        } catch (e) {
+            console.error("Lỗi lưu điểm:", e);
+        }
+    }
+
+    window.onload = initGame;
+</script>
+
+</body>
+</html>
