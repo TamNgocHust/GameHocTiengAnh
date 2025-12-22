@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Round 3: Multiple Choice - Mushroom Kingdom</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+    /* --- STYLE CƠ BẢN (GIỐNG ROUND 1 & 2) --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+    body {
+        height: 100vh; width: 100vw; background: #000;
+        display: flex; justify-content: center; align-items: center; overflow: hidden;
+        background-image: url('screen/mushroom.jpg'); 
+        background-size: cover; background-position: center;
+    }
+    .bg-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 0; }
+    .overlay-ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+    
+    /* User Info */
+    .top-right {
+        position: absolute; top: 15px; right: 20px;
+        background: rgba(255, 245, 210, 0.95); padding: 8px 16px; border-radius: 999px;
+        display: flex; align-items: center; gap: 12px; border: 2px solid #ffb347;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); pointer-events: auto;
+    }
+    .username-label { font-weight: 600; color: #553300; }
+    .logout-btn { cursor: pointer; padding: 4px 10px; border-radius: 999px; border: none; background: #ff4b3a; color: #fff; font-size: 0.85rem; box-shadow: 0 3px 0 #c53120; text-transform: uppercase; }
+    .logout-btn:hover { transform: translateY(-1px); }
+    .logout-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c53120; }
+
+    /* Back Button */
+    .bottom-left { position: absolute; left: 20px; bottom: 15px; pointer-events: auto; }
+    .btn-back { padding: 7px 16px; border-radius: 999px; border: none; background: #ffffff; color: #553300; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
+    .btn-back:hover { transform: translateY(-1px); }
+
+    /* --- GAME BOARD (THEME MÀU TÍM) --- */
+    #gameWrapper {
+        position: relative; z-index: 10;
+        width: 1000px; max-width: 95vw; height: 80vh;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px; border: 6px solid #9c27b0; /* Màu Tím */
+        box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    .game-header {
+        height: 70px; background: #f3e5f5; /* Tím nhạt */
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 30px; border-bottom: 3px solid #ce93d8;
+    }
+
+    .game-title { font-size: 1.5rem; font-weight: 700; color: #7b1fa2; }
+    .game-stats { font-size: 1.1rem; font-weight: 600; color: #4a148c; display: flex; gap: 20px; }
+    .stat-box span { color: #d32f2f; font-weight: 700; }
+
+    /* --- QUIZ AREA --- */
+    .quiz-area {
+        flex: 1; display: flex; flex-direction: column;
+        padding: 30px; gap: 20px; align-items: center; justify-content: center;
+        overflow-y: auto;
+    }
+
+    .question-box {
+        background: #fff; width: 100%; padding: 25px;
+        border: 3px solid #e1bee7; border-radius: 15px;
+        text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
+    }
+
+    .question-text { font-size: 1.4rem; font-weight: 700; color: #333; line-height: 1.4; }
+    
+    /* Grid đáp án */
+    .options-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        width: 100%;
+    }
+
+    .option-btn {
+        background: #fff; border: 2px solid #9c27b0; border-bottom: 5px solid #7b1fa2;
+        border-radius: 15px; padding: 20px;
+        font-size: 1.1rem; font-weight: 600; color: #6a1b9a;
+        cursor: pointer; transition: all 0.2s; position: relative;
+    }
+
+    .option-btn:hover { transform: translateY(-2px); background: #f3e5f5; }
+    .option-btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+    /* Khi đã chọn */
+    .option-btn.selected {
+        background: #9c27b0; color: white; border-color: #7b1fa2;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.2); transform: translateY(2px); border-bottom-width: 2px;
+    }
+
+    /* Loading & Result Overlays */
+    #loadingOverlay, #resultOverlay {
+        position: absolute; inset: 0; background: rgba(255,255,255,0.98);
+        z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    }
+    .hidden { display: none !important; }
+
+    .result-box {
+        background: #fff; padding: 30px 50px; border-radius: 20px;
+        border: 4px solid #9c27b0; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .result-title { font-size: 2rem; color: #7b1fa2; margin-bottom: 15px; }
+    .result-score { font-size: 1.5rem; color: #333; margin-bottom: 10px; }
+    .result-msg { font-size: 1.1rem; color: #666; margin-bottom: 20px; }
+    .btn-home { background: #9c27b0; color: white; padding: 12px 30px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #7b1fa2; }
+    .btn-home:hover { transform: translateY(-2px); }
+
+</style>
+</head>
+<body>
+
+<div class="bg-overlay"></div>
+
+<div class="overlay-ui">
+    <div class="top-right">
+        <span class="username-label" id="showUser">User</span>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    <div class="bottom-left">
+        <button class="btn-back" onclick="goBack()"><span>←</span> Menu</button>
+    </div>
+</div>
+
+<div id="gameWrapper">
+    <div class="game-header">
+        <div class="game-title">🔮 Round 3: Trí Tuệ Siêu Phàm</div>
+        <div class="game-stats">
+            <div class="stat-box">Câu: <span id="currentQ">1</span>/<span id="totalQ">10</span></div>
+            <div class="stat-box">Còn lại: <span id="timerDisplay">02:00</span></div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <h2>Đang tải bộ câu hỏi...</h2>
+        <p>Sẵn sàng thử thách trí não chưa?</p>
+    </div>
+
+    <div class="quiz-area" id="gameArea">
+        <div class="question-box">
+            <div class="question-text" id="questionText">Nội dung câu hỏi...</div>
+        </div>
+
+        <div class="options-grid" id="optionsContainer">
+            </div>
+    </div>
+
+    <div id="resultOverlay" class="hidden">
+        <div class="result-box">
+            <div class="result-title" id="resultTitle">Hoàn thành!</div>
+            <div class="result-score" id="resultScoreDisplay">Đang chấm điểm...</div>
+            <div class="result-msg" id="resultMsg"></div>
+            <button class="btn-home" onclick="goToRound4()" id="btnNextRound" style="display:none; margin-right: 10px; background: #4caf50;">Tiếp Round 4 ➜</button>
+            <button class="btn-home" onclick="goBack()">Về Menu</button>
+            <button class="btn-home" onclick="location.reload()" style="background:#ff9800; margin-left:10px">Chơi lại</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:5000/api/game/round3';
+    const SUBMIT_URL = 'http://localhost:5000/api/game/submit-round3';
+    const GAME_DURATION = 120; // 2 phút
+
+    let questionsData = [];
+    let currentQuestionIndex = 0;
+    let userAnswers = [];
+    let timerInterval;
+    let timeLeft = GAME_DURATION;
+
+    // User check
+    const userId = localStorage.getItem("currentUserID");
+    const fullname = localStorage.getItem("fullname");
+    document.getElementById("showUser").textContent = fullname || "User";
+    if (!userId) window.location.href = "login.html";
+
+    function logout() { localStorage.clear(); window.location.href = "login.html"; }
+    function goBack() { window.location.href = "menu.html"; }
+    function goToRound4() { window.location.href = "round4.html"; }
+
+    // --- TIMER ---
+    function startTimer() {
+        updateTimerDisplay();
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                finishGame();
+            }
+        }, 1000);
+    }
+    function updateTimerDisplay() {
+        const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+        const s = (timeLeft % 60).toString().padStart(2, '0');
+        const el = document.getElementById("timerDisplay");
+        el.textContent = `${m}:${s}`;
+        el.style.color = timeLeft < 10 ? "red" : "#4a148c";
+    }
+
+    // --- GAME LOGIC ---
+    async function initGame() {
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            if (data.success) {
+                questionsData = data.data;
+                document.getElementById("totalQ").textContent = questionsData.length;
+                document.getElementById("loadingOverlay").classList.add("hidden");
+                startTimer();
+                renderQuestion();
+            } else {
+                alert(data.msg);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Lỗi kết nối Server!");
+        }
+    }
+
+    function renderQuestion() {
+        const q = questionsData[currentQuestionIndex];
+        document.getElementById("questionText").textContent = q.questionText;
+        document.getElementById("currentQ").textContent = currentQuestionIndex + 1;
+
+        const container = document.getElementById("optionsContainer");
+        container.innerHTML = "";
+
+        q.answers.forEach(ans => {
+            const btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.textContent = ans.text;
+            btn.onclick = () => selectAnswer(q.questionId, ans.id, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    function selectAnswer(qId, ansId, btnElement) {
+        // Highlight visual
+        const allBtns = document.querySelectorAll('.option-btn');
+        allBtns.forEach(b => {
+            b.classList.remove('selected');
+            b.disabled = true; // Chặn click nhiều lần
+        });
+        btnElement.classList.add('selected');
+
+        // Lưu đáp án
+        userAnswers.push({ questionId: qId, selectedOptionId: ansId });
+
+        // Chuyển câu sau 0.5s
+        setTimeout(() => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questionsData.length) {
+                renderQuestion();
+            } else {
+                finishGame();
+            }
+        }, 500);
+    }
+
+    async function finishGame() {
+        clearInterval(timerInterval);
+        const timeUsed = GAME_DURATION - timeLeft;
+        
+        // Hiện màn hình chờ chấm
+        document.getElementById("resultOverlay").classList.remove("hidden");
+        document.getElementById("resultTitle").textContent = "Đang chấm điểm...";
+
+        try {
+            const res = await fetch(SUBMIT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentId: userId,
+                    answers: userAnswers,
+                    timeTaken: timeUsed
+                })
+            });
+            const result = await res.json();
+            showResult(result);
+        } catch (e) {
+            alert("Lỗi gửi bài!");
+        }
+    }
+
+    function showResult(data) {
+        const title = document.getElementById("resultTitle");
+        const score = document.getElementById("resultScoreDisplay");
+        const msg = document.getElementById("resultMsg");
+
+        title.textContent = data.isPassed ? "🎉 XUẤT SẮC!" : "😢 RẤT TIẾC!";
+        title.style.color = data.isPassed ? "#4caf50" : "#d32f2f";
+        score.textContent = `Điểm số: ${data.score}/10`;
+        msg.textContent = data.message;
+
+        if(data.isPassed) {
+            document.getElementById("btnNextRound").style.display = "inline-block";
+        }
+    }
+
+    window.onload = initGame;
+</script>
+
+</body>
+</html>
