@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard - Mushroom Kingdom</title>
+  <style>
+    /* --- GIỮ NGUYÊN CSS CỦA BẠN (VÌ NÓ ĐẸP RỒI) --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+    body { background: url("screen/phongnen.jpg") no-repeat center center fixed; background-size: cover; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px; }
+    .overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.35); }
+
+    .card { position: relative; z-index: 1; width: 1050px; max-width: 96vw; height: 90vh; background: rgba(255, 245, 210, 0.97);
+      border: 4px solid #ff8c42; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+      display:flex; flex-direction:column; padding:18px; overflow:hidden; }
+
+    .top-user { position:absolute; top:-52px; right:0; background: rgba(255,245,210,0.95); border:2px solid #ffb347;
+      padding:8px 18px; border-radius:999px; font-weight:700; box-shadow:0 6px 16px rgba(0,0,0,0.25); color:#553300; }
+
+    .header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .title { font-size:1.8rem; font-weight:800; color:#d13625; text-transform:uppercase; text-shadow:0 2px 0 #ffd76b; }
+    
+    .controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    label { font-weight:700; color:#553300; }
+    
+    /* CSS CHO SELECT ĐỘ KHÓ */
+    .diff-select { padding:8px 12px; border-radius:12px; border:2px solid #ffb347; background:#fffaf0; outline:none; font-weight:700; color:#d84315; cursor: pointer;}
+
+    .hint { margin-top:10px; font-size:0.95rem; color:#6b4b2a; }
+
+    .panel { margin-top:14px; background:#fff; border-radius:16px; border:2px solid #ffe0b2; display:flex; flex-direction:column; overflow:hidden; flex:1; }
+    .panel-head { padding:12px 14px; background:#fff3e0; border-bottom:2px dashed #ffe0b2; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .panel-title { font-weight:900; color:#e65100; }
+    .msg { font-weight:700; color:#1f2937; } .msg.err { color:#b91c1c; } .msg.ok { color:#166534; }
+
+    .scroll { flex:1; overflow:auto; }
+    table { width:100%; border-collapse:collapse; }
+    th { position:sticky; top:0; z-index:2; background:#fff8e1; color:#bf360c; padding:10px; text-align:left; border-bottom:1px solid #eee; font-weight:900; }
+    td { padding:10px; border-bottom:1px solid #f0f0f0; } tr:hover td { background:#fffdf6; }
+
+    .rank { font-weight:900; width:80px; text-align: center;}
+    .badge { display:inline-flex; align-items:center; justify-content:center; min-width:34px; padding:4px 10px; border-radius:999px; font-weight:900; color:#fff; font-size:0.9rem; }
+    .b1 { background: linear-gradient(135deg, #ffd700, #f57f17); box-shadow: 0 2px 5px rgba(245, 127, 23, 0.4); } 
+    .b2 { background: linear-gradient(135deg, #e0e0e0, #9e9e9e); box-shadow: 0 2px 5px rgba(158, 158, 158, 0.4); } 
+    .b3 { background: linear-gradient(135deg, #ffcc80, #e65100); box-shadow: 0 2px 5px rgba(230, 81, 0, 0.4); } 
+    .me { background:#ec4899; }
+    
+    .score-high { color: #d84315; font-weight: 800; font-size: 1.1rem; }
+    .muted { color:#777; }
+
+    .footer { display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:12px; flex-wrap:wrap; }
+    .btn { border:none; cursor:pointer; padding:10px 22px; border-radius:999px; font-weight:900; color:#fff; background:#ff8c42; box-shadow:0 6px 0 #c65f18; }
+    .btn:hover { transform:translateY(-1px); box-shadow:0 7px 0 #c65f18; } .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #c65f18; }
+    .btn-refresh { background:#3eb13e; box-shadow:0 6px 0 #287427; }
+    
+    .avatar-circle {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; background: #ffe0b2; color: #e65100;
+        border-radius: 50%; margin-right: 8px; font-size: 0.8rem; font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="overlay"></div>
+
+  <div class="card">
+    <div class="top-user">User: <span id="showUser" style="color:#d84315">...</span></div>
+
+    <div class="header">
+      <div>
+        <div class="title">👑 Leaderboard</div>
+        <div class="hint">Top 20 chiến binh xuất sắc nhất server.</div>
+      </div>
+
+      <div class="controls">
+        <label for="diffSelect">Độ khó:</label>
+        <select id="diffSelect" class="diff-select" onchange="loadLeaderboard()">
+            <option value="Easy">Easy (Dễ)</option>
+            <option value="Normal" selected>Normal (Thường)</option>
+            <option value="Hard">Hard (Khó)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title" id="panelTitle">Bảng xếp hạng</div>
+        </div>
+        <div class="msg" id="msg">&nbsp;</div>
+      </div>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:90px; text-align:center;">Hạng</th>
+              <th>Người chơi</th>
+              <th style="width:150px">Tổng Điểm</th>
+              <th style="width:150px">Thời gian</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="4" class="muted" style="padding:14px; text-align:center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn" onclick="location.href='menu.html'">← Quay lại Menu</button>
+      <button class="btn btn-refresh" onclick="loadLeaderboard()">⟳ Tải lại</button>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:5000/api/leaderboard';
+    const userId = localStorage.getItem('currentUserID');
+    const fullname = localStorage.getItem('fullname');
+    const username = localStorage.getItem('username');
+
+    // Hàm chuyển đổi giây sang phút:giây
+    function fmtTime(sec) {
+        const s = Number(sec) || 0;
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return `${m}p ${r}s`;
+    }
+
+    function setMsg(text, type) {
+      const el = document.getElementById('msg');
+      el.textContent = text || '';
+      el.className = 'msg' + (type ? (' ' + type) : '');
+    }
+
+    async function loadLeaderboard() {
+      // 1. Lấy độ khó người dùng chọn
+      const difficulty = document.getElementById('diffSelect').value;
+      
+      setMsg('⏳ Đang cập nhật...', '');
+      const tbody = document.getElementById('tbody');
+      
+      // Update Title
+      document.getElementById('panelTitle').textContent = `Top Server (${difficulty})`;
+
+      tbody.innerHTML = `<tr><td colspan="4" class="muted" style="padding:14px; text-align:center;">Đang tải dữ liệu...</td></tr>`;
+
+      try {
+        // 2. Gọi API mới (đúng chuẩn backend)
+        const res = await fetch(`${API}?difficulty=${difficulty}`);
+        const data = await res.json();
+
+        if (!data.success) {
+          setMsg('❌ Lỗi tải dữ liệu', 'err');
+          return;
+        }
+
+        const entries = data.data || [];
+
+        if (entries.length === 0) {
+          setMsg(`ℹ️ Chưa có ai chơi mức ${difficulty}.`, '');
+          tbody.innerHTML = `<tr><td colspan="4" class="muted" style="padding:14px; text-align:center;">Chưa có dữ liệu. Hãy là người đầu tiên!</td></tr>`;
+          return;
+        }
+
+        setMsg(`✅ Đã tải ${entries.length} chiến binh`, 'ok');
+
+        // 3. Render bảng xếp hạng
+        tbody.innerHTML = entries.map((e, index) => {
+          const rank = index + 1;
+          
+          // Icon huy chương
+          let badge = `<span class="badge" style="background:#555">#${rank}</span>`;
+          if (rank === 1) badge = '<span class="badge b1">🥇</span>';
+          else if (rank === 2) badge = '<span class="badge b2">🥈</span>';
+          else if (rank === 3) badge = '<span class="badge b3">🥉</span>';
+
+          // Xác định tên hiển thị
+          const displayName = e.FullName || e.Username || "Unknown";
+          const currentUserName = fullname || username;
+          
+          // Kiểm tra xem có phải là mình không (So sánh tên hoặc username)
+          const isMe = (e.Username === username) || (e.FullName === fullname);
+          const rowStyle = isMe ? "background-color: #fff9c4;" : "";
+          const nameStyle = isMe ? "color: #d84315; font-weight:bold;" : "";
+
+          // Avatar chữ cái đầu
+          const avatarChar = displayName[0].toUpperCase();
+
+          return `
+            <tr style="${rowStyle}">
+              <td class="rank">${badge}</td>
+              <td>
+                <div style="display:flex; align-items:center;">
+                    <span class="avatar-circle">${avatarChar}</span>
+                    <span style="${nameStyle}">${displayName}</span>
+                    ${isMe ? ' <span style="font-size:0.75rem; color:#e65100; margin-left:5px; border:1px solid #e65100; padding:0 4px; border-radius:4px;">YOU</span>' : ''}
+                </div>
+              </td>
+              <td class="score-high">${e.TotalScore}</td>
+              <td class="muted">${fmtTime(e.TotalTime)}</td>
+            </tr>
+          `;
+        }).join('');
+
+      } catch (err) {
+        console.error(err);
+        setMsg('⚠️ Lỗi kết nối server', 'err');
+        tbody.innerHTML = `<tr><td colspan="4" class="muted" style="padding:14px; text-align:center;">Không tải được dữ liệu.</td></tr>`;
+      }
+    }
+
+    window.onload = () => {
+      let displayUser = fullname || username || "Khách";
+      document.getElementById('showUser').textContent = displayUser;
+
+      loadLeaderboard();
+    };
+  </script>
+</body>
+</html>

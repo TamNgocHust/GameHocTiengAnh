@@ -15,6 +15,33 @@ log on
    filegrowth=100mb
 )
 
+-- 1. Sử dụng Database của bạn (Nếu chưa có DB thì bỏ dòng này và tạo DB trước)
+USE GameHocTiengAnh1; 
+GO
+
+-- 2. Tạo tài khoản đăng nhập vào Server (Tên: GameUser, Mật khẩu: 123456)
+-- Lệnh này tự động BỎ QUA chính sách mật khẩu phức tạp
+CREATE LOGIN GameUser WITH PASSWORD = '123456', CHECK_POLICY = OFF;
+GO
+
+-- 3. Tạo User trong Database từ tài khoản trên
+CREATE USER GameUser FOR LOGIN GameUser;
+GO
+
+-- 4. Cấp quyền Đọc (Select) và Ghi (Insert/Update) cho User này
+ALTER ROLE db_datareader ADD MEMBER GameUser;
+ALTER ROLE db_datawriter ADD MEMBER GameUser;
+GO
+
+-- 5. Đảm bảo Server cho phép đăng nhập bằng tài khoản SQL (Mixed Mode)
+EXEC xp_instance_regwrite N'HKEY_LOCAL_MACHINE', 
+    N'Software\Microsoft\MSSQLServer\MSSQLServer', N'LoginMode', REG_DWORD, 2;
+GO
+
+PRINT '=== TẠO TÀI KHOẢN THÀNH CÔNG ===';
+PRINT 'User: GameUser';
+PRINT 'Pass: 123456';
+SELECT @@SERVERNAME;
 -- Sử dụng database vừa tạo
 USE GameHocTiengAnh1;
 GO
@@ -1666,4 +1693,404 @@ A: I''m going to swim in the sea.',
         @CurrentTopicID
     );
 END
+GO
+SELECT name, type_desc FROM sys.server_principals WHERE name = 'GameUser';
+DELETE FROM Vocabulary WHERE Word IN (
+    'family', 'friend', 'school', 'classmate', 'hobby', 'active', 'clever', 'friendly', 'helpful', 'kind', 'like', 'play', 'talk', 'share', 'learn', -- Unit 1
+    'flat', 'address', 'building', 'tower', 'district', 'comfortable', 'clean', 'tidy', 'messy', 'far', 'near', 'live', 'hometown' -- Unit 2
+);
+GO
+DECLARE @Unit1ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Unit 1:%');
+
+IF @Unit1ID IS NOT NULL
+BEGIN
+    INSERT INTO Vocabulary (Word, Pronunciation, Meaning, WordType, Example, TopicID) VALUES 
+    ('family', N'/ˈfæmɪli/', N'gia đình', 'Noun', N'I love my family.', @Unit1ID),
+    ('friend', N'/frend/', N'bạn bè', 'Noun', N'She is my best friend.', @Unit1ID),
+    ('school', N'/skuːl/', N'trường học', 'Noun', N'I go to school by bus.', @Unit1ID),
+    ('classmate', N'/ˈklɑːsmeɪt/', N'bạn cùng lớp', 'Noun', N'He is my new classmate.', @Unit1ID),
+    ('hobby', N'/ˈhɒbi/', N'sở thích', 'Noun', N'My hobby is reading books.', @Unit1ID),
+    ('active', N'/ˈæktɪv/', N'năng động', 'Adjective', N'Tom is very active.', @Unit1ID),
+    ('clever', N'/ˈklevə/', N'thông minh', 'Adjective', N'She is a clever student.', @Unit1ID),
+    ('friendly', N'/ˈfrendli/', N'thân thiện', 'Adjective', N'Our teacher is very friendly.', @Unit1ID),
+    ('helpful', N'/ˈhelpfʊl/', N'hữu ích', 'Adjective', N'Thank you for being helpful.', @Unit1ID),
+    ('kind', N'/kaɪnd/', N'tử tế', 'Adjective', N'Be kind to others.', @Unit1ID),
+    ('like', N'/laɪk/', N'thích', 'Verb', N'I like ice cream.', @Unit1ID),
+    ('play', N'/pleɪ/', N'chơi', 'Verb', N'Let''s play football.', @Unit1ID),
+    ('talk', N'/tɔːk/', N'nói chuyện', 'Verb', N'Please do not talk in class.', @Unit1ID),
+    ('share', N'/ʃeə/', N'chia sẻ', 'Verb', N'Share your toys with friends.', @Unit1ID),
+    ('learn', N'/lɜːn/', N'học hỏi', 'Verb', N'We learn English together.', @Unit1ID);
+    PRINT N'--- Đã sửa xong Unit 1 ---';
+END
+
+-- =======================================================
+-- BƯỚC 3: CHÈN LẠI ĐÚNG CHO UNIT 2
+-- =======================================================
+DECLARE @Unit2ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Unit 2:%');
+
+IF @Unit2ID IS NOT NULL
+BEGIN
+    INSERT INTO Vocabulary (Word, Pronunciation, Meaning, WordType, Example, TopicID) VALUES 
+    ('flat', N'/flæt/', N'căn hộ', 'Noun', N'My flat is small but cozy.', @Unit2ID),
+    ('address', N'/ə''dres/', N'địa chỉ', 'Noun', N'What is your address?', @Unit2ID),
+    ('building', N'/''bɪldɪŋ/', N'tòa nhà', 'Noun', N'It is a very tall building.', @Unit2ID),
+    ('tower', N'/''taʊə(r)/', N'tòa tháp', 'Noun', N'He lives in Tower B.', @Unit2ID),
+    ('district', N'/''dɪstrɪkt/', N'quận', 'Noun', N'I live in Cau Giay District.', @Unit2ID),
+    ('comfortable', N'/''kʌmfətəbl/', N'thoải mái', 'Adjective', N'This sofa is very comfortable.', @Unit2ID),
+    ('clean', N'/kli:n/', N'sạch sẽ', 'Adjective', N'Keep your room clean.', @Unit2ID),
+    ('tidy', N'/''taɪdi/', N'ngăn nắp', 'Adjective', N'Her desk is always tidy.', @Unit2ID),
+    ('messy', N'/''mesi/', N'bừa bộn', 'Adjective', N'Do not leave your room messy.', @Unit2ID),
+    ('far', N'/fɑ:(r)/', N'xa', 'Adjective', N'Is your school far from here?', @Unit2ID),
+    ('near', N'/nɪə(r)/', N'gần', 'Adjective', N'My house is near the park.', @Unit2ID),
+    ('live', N'/lɪv/', N'sống', 'Verb', N'I live in Hanoi.', @Unit2ID),
+    ('hometown', N'/''həʊmtaʊn/', N'quê hương', 'Noun', N'My hometown is Da Nang.', @Unit2ID);
+    PRINT N'--- Đã sửa xong Unit 2 ---';
+END
+GO
+DELETE FROM Vocabulary WHERE Word IN (
+    -- Unit 1
+    'family', 'friend', 'school', 'classmate', 'hobby', 'active', 'clever', 'friendly', 'helpful', 'kind', 'like', 'play', 'talk', 'share', 'learn',
+    -- Unit 2
+    'flat', 'address', 'building', 'tower', 'district', 'comfortable', 'clean', 'tidy', 'messy', 'far', 'near', 'live', 'hometown'
+);
+
+-- 1.2 Xóa Ngữ pháp Unit 1 & 2 cũ (để tránh bị trùng lặp)
+DELETE FROM Grammar WHERE GrammarName IN (
+    N'Hỏi và trả lời về thông tin cá nhân', 
+    N'Hỏi về sở thích (màu sắc)',
+    N'Hỏi về nơi sinh sống (Yes/No Question)', 
+    N'Hỏi về địa chỉ nhà'
+);
+
+-- =======================================================
+-- BƯỚC 2: NẠP LẠI DỮ LIỆU CHUẨN CHO UNIT 1
+-- (Dùng 'Unit 1:%' có dấu hai chấm để tìm chính xác)
+-- =======================================================
+PRINT N'--- Đang sửa Unit 1... ---';
+DECLARE @Unit1ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Unit 1:%');
+
+IF @Unit1ID IS NOT NULL
+BEGIN
+    -- Chèn Từ vựng Unit 1
+    INSERT INTO Vocabulary (Word, Pronunciation, Meaning, WordType, Example, TopicID) VALUES 
+    ('family', N'/ˈfæmɪli/', N'gia đình', 'Noun', N'I love my family.', @Unit1ID),
+    ('friend', N'/frend/', N'bạn bè', 'Noun', N'She is my best friend.', @Unit1ID),
+    ('school', N'/skuːl/', N'trường học', 'Noun', N'I go to school by bus.', @Unit1ID),
+    ('classmate', N'/ˈklɑːsmeɪt/', N'bạn cùng lớp', 'Noun', N'He is my new classmate.', @Unit1ID),
+    ('hobby', N'/ˈhɒbi/', N'sở thích', 'Noun', N'My hobby is reading books.', @Unit1ID),
+    ('active', N'/ˈæktɪv/', N'năng động', 'Adjective', N'Tom is very active.', @Unit1ID),
+    ('clever', N'/ˈklevə/', N'thông minh', 'Adjective', N'She is a clever student.', @Unit1ID),
+    ('friendly', N'/ˈfrendli/', N'thân thiện', 'Adjective', N'Our teacher is very friendly.', @Unit1ID),
+    ('helpful', N'/ˈhelpfʊl/', N'hữu ích', 'Adjective', N'Thank you for being helpful.', @Unit1ID),
+    ('kind', N'/kaɪnd/', N'tử tế', 'Adjective', N'Be kind to others.', @Unit1ID),
+    ('like', N'/laɪk/', N'thích', 'Verb', N'I like ice cream.', @Unit1ID),
+    ('play', N'/pleɪ/', N'chơi', 'Verb', N'Let''s play football.', @Unit1ID),
+    ('talk', N'/tɔːk/', N'nói chuyện', 'Verb', N'Please do not talk in class.', @Unit1ID),
+    ('share', N'/ʃeə/', N'chia sẻ', 'Verb', N'Share your toys with friends.', @Unit1ID),
+    ('learn', N'/lɜːn/', N'học hỏi', 'Verb', N'We learn English together.', @Unit1ID);
+
+    -- Chèn Ngữ pháp Unit 1
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Hỏi và trả lời về thông tin cá nhân', N'Q: Can you tell me about yourself? A: I''m in Grade... I live in...', N'Dùng để hỏi và giới thiệu bản thân.', N'I''m in Grade 5.', @Unit1ID),
+    (N'Hỏi về sở thích (màu sắc)', N'Q: What''s your favourite...? A: It''s...', N'Hỏi về điều yêu thích.', N'It''s blue.', @Unit1ID);
+END
+
+-- =======================================================
+-- BƯỚC 3: NẠP LẠI DỮ LIỆU CHUẨN CHO UNIT 2
+-- (Dùng 'Unit 2:%' có dấu hai chấm)
+-- =======================================================
+PRINT N'--- Đang sửa Unit 2... ---';
+DECLARE @Unit2ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Unit 2:%');
+
+IF @Unit2ID IS NOT NULL
+BEGIN
+    -- Chèn Từ vựng Unit 2
+    INSERT INTO Vocabulary (Word, Pronunciation, Meaning, WordType, Example, TopicID) VALUES 
+    ('flat', N'/flæt/', N'căn hộ', 'Noun', N'My flat is small but cozy.', @Unit2ID),
+    ('address', N'/ə''dres/', N'địa chỉ', 'Noun', N'What is your address?', @Unit2ID),
+    ('building', N'/''bɪldɪŋ/', N'tòa nhà', 'Noun', N'It is a very tall building.', @Unit2ID),
+    ('tower', N'/''taʊə(r)/', N'tòa tháp', 'Noun', N'He lives in Tower B.', @Unit2ID),
+    ('district', N'/''dɪstrɪkt/', N'quận', 'Noun', N'I live in Cau Giay District.', @Unit2ID),
+    ('comfortable', N'/''kʌmfətəbl/', N'thoải mái', 'Adjective', N'This sofa is very comfortable.', @Unit2ID),
+    ('clean', N'/kli:n/', N'sạch sẽ', 'Adjective', N'Keep your room clean.', @Unit2ID),
+    ('tidy', N'/''taɪdi/', N'ngăn nắp', 'Adjective', N'Her desk is always tidy.', @Unit2ID),
+    ('messy', N'/''mesi/', N'bừa bộn', 'Adjective', N'Do not leave your room messy.', @Unit2ID),
+    ('far', N'/fɑ:(r)/', N'xa', 'Adjective', N'Is your school far from here?', @Unit2ID),
+    ('near', N'/nɪə(r)/', N'gần', 'Adjective', N'My house is near the park.', @Unit2ID),
+    ('live', N'/lɪv/', N'sống', 'Verb', N'I live in Hanoi.', @Unit2ID),
+    ('hometown', N'/''həʊmtaʊn/', N'quê hương', 'Noun', N'My hometown is Da Nang.', @Unit2ID);
+
+    -- Chèn Ngữ pháp Unit 2
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Hỏi về nơi sinh sống (Yes/No Question)', N'Q: Do you live in...? A: Yes, I do / No, I don''t.', N'Xác nhận nơi sống.', N'Yes, I do.', @Unit2ID),
+    (N'Hỏi về địa chỉ nhà', N'Q: What''s your address? A: It''s...', N'Hỏi địa chỉ.', N'It''s 123 Le Duan St.', @Unit2ID);
+END
+GO
+--Chèn câu hỏi
+--Màn 1: Nối từ(matching)
+-- 1. Tạo Topic riêng cho Game để dễ quản lý
+INSERT INTO Topics (TopicName) VALUES (N'Game Round 1 Pool');
+DECLARE @GameTopicID INT = SCOPE_IDENTITY(); -- Lấy ID vừa tạo
+
+-- 2. Tạo 1 câu hỏi "Container" chứa tất cả 20 cặp từ này
+-- (Chúng ta gom hết vào 1 QuestionID cho gọn, hoặc chia nhỏ cũng được, 
+-- nhưng gom 1 cái thì Query lấy Option sẽ nhanh hơn)
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, HintText, CorrectAnswer)
+VALUES (@GameTopicID, N'Nối từ vựng (Game Pool)', 'matching', N'Game Round 1', N'All Pairs');
+
+DECLARE @Q_ID INT = SCOPE_IDENTITY();
+
+-- 3. CHÈN 20 CẶP TỪ (POOL DATA) VÀO BẢNG QuestionOptions
+-- Format: {"L": "Tiếng Anh", "R": "Tiếng Việt"}
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+-- Nhóm Gia đình & Bạn bè (5)
+(@Q_ID, N'{"L": "Family", "R": "Gia đình"}', 1),
+(@Q_ID, N'{"L": "Friend", "R": "Bạn bè"}', 1),
+(@Q_ID, N'{"L": "Teacher", "R": "Giáo viên"}', 1),
+(@Q_ID, N'{"L": "Classmate", "R": "Bạn cùng lớp"}', 1),
+(@Q_ID, N'{"L": "Parents", "R": "Bố mẹ"}', 1),
+
+-- Nhóm Nhà cửa (5)
+(@Q_ID, N'{"L": "House", "R": "Ngôi nhà"}', 1),
+(@Q_ID, N'{"L": "Bedroom", "R": "Phòng ngủ"}', 1),
+(@Q_ID, N'{"L": "Kitchen", "R": "Nhà bếp"}', 1),
+(@Q_ID, N'{"L": "Garden", "R": "Khu vườn"}', 1),
+(@Q_ID, N'{"L": "Living room", "R": "Phòng khách"}', 1),
+
+-- Nhóm Động từ hoạt động (5)
+(@Q_ID, N'{"L": "Run", "R": "Chạy"}', 1),
+(@Q_ID, N'{"L": "Swim", "R": "Bơi lội"}', 1),
+(@Q_ID, N'{"L": "Read", "R": "Đọc sách"}', 1),
+(@Q_ID, N'{"L": "Listen", "R": "Nghe"}', 1),
+(@Q_ID, N'{"L": "Write", "R": "Viết"}', 1),
+
+-- Nhóm Tính từ (5)
+(@Q_ID, N'{"L": "Happy", "R": "Vui vẻ"}', 1),
+(@Q_ID, N'{"L": "Sad", "R": "Buồn bã"}', 1),
+(@Q_ID, N'{"L": "Big", "R": "To lớn"}', 1),
+(@Q_ID, N'{"L": "Small", "R": "Nhỏ bé"}', 1),
+(@Q_ID, N'{"L": "Beautiful", "R": "Xinh đẹp"}', 1);
+
+PRINT N'--- Đã tạo kho 20 câu hỏi cho Game Round 1 thành công ---';
+GO
+--Màn 2: Sắp xếp(Scramble)
+USE GameHocTiengAnh1;
+GO
+
+-- 1. Tạo Topic riêng cho Game Round 2
+INSERT INTO Topics (TopicName) VALUES (N'Game Round 2 Pool');
+DECLARE @GameTopic2ID INT = SCOPE_IDENTITY(); -- Lấy ID vừa tạo
+
+-- 2. Tạo 1 câu hỏi "Container" chứa danh sách các câu cần sắp xếp
+-- QuestionType vẫn là 'scramble' (sắp xếp)
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, HintText, CorrectAnswer)
+VALUES (@GameTopic2ID, N'Sắp xếp các từ xáo trộn thành câu hoàn chỉnh', 'scramble', N'Game Round 2', N'All Sentences');
+
+DECLARE @Q2_ID INT = SCOPE_IDENTITY();
+
+-- 3. CHÈN 20 CÂU TIẾNG ANH MẪU (Lấy từ chương trình học lớp 5 trong Database)
+-- Lưu ý: OptionContent chứa câu ĐÚNG hoàn chỉnh.
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+-- Unit 1: Giới thiệu bản thân
+(@Q2_ID, N'I am a pupil at Nguyen Du Primary School', 1),
+(@Q2_ID, N'I live with my parents in Hanoi', 1),
+
+-- Unit 2: Nhà cửa
+(@Q2_ID, N'My family lives on the third floor of Tower B', 1),
+(@Q2_ID, N'It is a small and quiet village', 1),
+
+-- Unit 4: Hoạt động rảnh rỗi
+(@Q2_ID, N'I often surf the Internet in my free time', 1),
+(@Q2_ID, N'She goes swimming twice a week', 1),
+
+-- Unit 5: Nghề nghiệp
+(@Q2_ID, N'I would like to be a writer in the future', 1),
+(@Q2_ID, N'Why would you like to be a pilot', 1), -- Câu hỏi
+
+-- Unit 6: Trường học
+(@Q2_ID, N'The library is on the first floor', 1),
+(@Q2_ID, N'Go along the corridor and turn left', 1),
+
+-- Unit 8: Lớp học
+(@Q2_ID, N'May I write on the board', 1),
+(@Q2_ID, N'Please do not talk in the class', 1),
+
+-- Unit 9: Thì hiện tại tiếp diễn
+(@Q2_ID, N'They are playing badminton in the playground', 1),
+(@Q2_ID, N'What is he doing now', 1),
+
+-- Unit 12: Ngày Tết
+(@Q2_ID, N'We decorate our house before Tet', 1),
+(@Q2_ID, N'I get lucky money from my grandparents', 1),
+
+-- Unit 14: Sức khỏe
+(@Q2_ID, N'You should wash your hands before meals', 1),
+(@Q2_ID, N'You should not eat too much candy', 1),
+
+-- Unit 20: Tương lai gần
+(@Q2_ID, N'I am going to visit Ha Long Bay this summer', 1),
+(@Q2_ID, N'We are going to build a sandcastle on the beach', 1);
+
+PRINT N'=== Đã tạo kho 20 câu hỏi cho Game Round 2 (Sắp xếp câu) thành công ===';
+GO
+
+
+-- 1. LẤY ID CỦA CÂU HỎI TRONG ROUND 2
+DECLARE @Topic2ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Game Round 2 Pool');
+DECLARE @Q2_ID INT = (SELECT TOP 1 QuestionID FROM Questions WHERE TopicID = @Topic2ID AND QuestionType = 'scramble');
+
+-- Kiểm tra nếu chưa có ID thì báo lỗi (Thường là đã có do các bước trước)
+IF @Q2_ID IS NULL
+BEGIN
+    PRINT N'❌ LỖI: Không tìm thấy câu hỏi Round 2. Vui lòng chạy lại script tạo cấu trúc Round 2 trước.';
+    RETURN;
+END
+
+-- 2. XÓA DỮ LIỆU CŨ (Để đảm bảo sạch sẽ, không bị trùng)
+DELETE FROM QuestionOptions WHERE QuestionID = @Q2_ID;
+PRINT N'🧹 Đã dọn sạch dữ liệu cũ của Round 2.';
+
+-- 3. CHÈN 20 CÂU MỚI VÀO
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+-- Unit 1: Giới thiệu bản thân
+(@Q2_ID, N'I am a pupil at Nguyen Du Primary School', 1),
+(@Q2_ID, N'I live with my parents in Hanoi', 1),
+
+-- Unit 2: Nhà cửa
+(@Q2_ID, N'My family lives on the third floor of Tower B', 1),
+(@Q2_ID, N'It is a small and quiet village', 1),
+
+-- Unit 4: Hoạt động rảnh rỗi
+(@Q2_ID, N'I often surf the Internet in my free time', 1),
+(@Q2_ID, N'She goes swimming twice a week', 1),
+
+-- Unit 5: Nghề nghiệp
+(@Q2_ID, N'I would like to be a writer in the future', 1),
+(@Q2_ID, N'Why would you like to be a pilot', 1),
+
+-- Unit 6: Trường học
+(@Q2_ID, N'The library is on the first floor', 1),
+(@Q2_ID, N'Go along the corridor and turn left', 1),
+
+-- Unit 8: Lớp học
+(@Q2_ID, N'May I write on the board', 1),
+(@Q2_ID, N'Please do not talk in the class', 1),
+
+-- Unit 9: Thì hiện tại tiếp diễn
+(@Q2_ID, N'They are playing badminton in the playground', 1),
+(@Q2_ID, N'What is he doing now', 1),
+
+-- Unit 12: Ngày Tết
+(@Q2_ID, N'We decorate our house before Tet', 1),
+(@Q2_ID, N'I get lucky money from my grandparents', 1),
+
+-- Unit 14: Sức khỏe
+(@Q2_ID, N'You should wash your hands before meals', 1),
+(@Q2_ID, N'You should not eat too much candy', 1),
+
+-- Unit 20: Tương lai gần
+(@Q2_ID, N'I am going to visit Ha Long Bay this summer', 1),
+(@Q2_ID, N'We are going to build a sandcastle on the beach', 1);
+
+PRINT N'✅ Đã nạp thành công 20 câu hỏi cho Round 2!';
+GO
+
+-- ====================================================
+-- BƯỚC 1: XÓA INDEX CŨ (Khắc phục lỗi Msg 1913)
+-- ====================================================
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Leaderboard_Sort' AND object_id = OBJECT_ID('LeaderboardEntries'))
+BEGIN
+    DROP INDEX IX_Leaderboard_Sort ON LeaderboardEntries;
+    PRINT N'✅ Đã xóa Index cũ thành công.';
+END
+GO
+
+-- ====================================================
+-- BƯỚC 2: GỠ BỎ RÀNG BUỘC CỦA CỘT TOTALSTARS (Khắc phục lỗi Msg 5074)
+-- ====================================================
+DECLARE @ConstraintName NVARCHAR(200);
+SELECT @ConstraintName = name 
+FROM sys.default_constraints 
+WHERE parent_object_id = OBJECT_ID('LeaderboardEntries') 
+AND parent_column_id = (SELECT column_id FROM sys.columns WHERE object_id = OBJECT_ID('LeaderboardEntries') AND name = 'TotalStars');
+
+IF @ConstraintName IS NOT NULL
+BEGIN
+    EXEC('ALTER TABLE LeaderboardEntries DROP CONSTRAINT ' + @ConstraintName);
+    PRINT N'✅ Đã gỡ bỏ khóa (Constraint): ' + @ConstraintName;
+END
+GO
+
+-- ====================================================
+-- BƯỚC 3: XÓA CỘT TOTALSTARS (Khắc phục lỗi Msg 4922)
+-- ====================================================
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'LeaderboardEntries') AND name = 'TotalStars')
+BEGIN
+    ALTER TABLE LeaderboardEntries DROP COLUMN TotalStars;
+    PRINT N'✅ Đã xóa cột TotalStars thành công.';
+END
+GO
+
+-- ====================================================
+-- BƯỚC 4: TẠO LẠI INDEX MỚI (CHUẨN ĐIỂM + THỜI GIAN)
+-- ====================================================
+CREATE INDEX IX_Leaderboard_Sort 
+ON LeaderboardEntries(ClassID, RankMonth, TotalScore DESC, TotalTime ASC);
+GO
+USE GameHocTiengAnh1;
+GO
+
+PRINT N'=== BẮT ĐẦU QUÁ TRÌNH DỌN DẸP DỮ LIỆU CŨ (GLOBAL SUCCESS) ===';
+
+-- 1. XÓA DỮ LIỆU LIÊN QUAN ĐẾN HOẠT ĐỘNG CỦA HỌC SINH (Bắt buộc vì dính khóa ngoại tới Câu hỏi & Game)
+-- Nếu không xóa bảng này, bạn không thể xóa Câu hỏi hay Game được.
+DELETE FROM StudentAnswers;
+PRINT N'✅ Đã xóa chi tiết câu trả lời của học sinh (StudentAnswers).';
+
+DELETE FROM PlayHistory;
+PRINT N'✅ Đã xóa lịch sử chơi game (PlayHistory) để làm sạch dữ liệu cũ.';
+
+-- (Tùy chọn) Xóa bảng xếp hạng để tính lại từ đầu cho sách mới
+DELETE FROM LeaderboardEntries;
+PRINT N'✅ Đã reset bảng xếp hạng (LeaderboardEntries).';
+
+
+-- 2. XÓA NHÓM CÂU HỎI VÀ GAME (Cấp con)
+DELETE FROM QuestionOptions;
+PRINT N'✅ Đã xóa các lựa chọn đáp án (QuestionOptions).';
+
+DELETE FROM Game_Questions;
+PRINT N'✅ Đã xóa liên kết Game - Câu hỏi (Game_Questions).';
+
+DELETE FROM Questions;
+PRINT N'✅ Đã xóa toàn bộ câu hỏi cũ (Questions).';
+
+
+-- 3. Xóa NHÓM KIẾN THỨC (Cấp trung gian)
+DELETE FROM Vocabulary;
+PRINT N'✅ Đã xóa toàn bộ từ vựng cũ (Vocabulary).';
+
+DELETE FROM Grammar;
+PRINT N'✅ Đã xóa toàn bộ ngữ pháp cũ (Grammar).';
+
+DELETE FROM Games;
+PRINT N'✅ Đã xóa các màn chơi cũ (Games).';
+
+
+-- 4. XÓA CHỦ ĐỀ (Cấp cha - Root)
+DELETE FROM Topics;
+PRINT N'✅ Đã xóa toàn bộ chủ đề cũ (Topics).';
+
+
+-- 5. RESET LẠI BỘ ĐẾM ID (Để dữ liệu Cánh Diều mới bắt đầu từ ID 1 cho đẹp)
+DBCC CHECKIDENT ('Topics', RESEED, 0);
+DBCC CHECKIDENT ('Vocabulary', RESEED, 0);
+DBCC CHECKIDENT ('Grammar', RESEED, 0);
+DBCC CHECKIDENT ('Questions', RESEED, 0);
+DBCC CHECKIDENT ('QuestionOptions', RESEED, 0);
+DBCC CHECKIDENT ('Games', RESEED, 0);
+DBCC CHECKIDENT ('PlayHistory', RESEED, 0);
+PRINT N'✅ Đã reset bộ đếm ID (Identity) về 0.';
+
+PRINT N'=== HOÀN TẤT DỌN DẸP. DATABASE ĐÃ SẴN SÀNG CHO SÁCH CÁNH DIỀU ===';
 GO

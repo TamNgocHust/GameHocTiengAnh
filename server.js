@@ -2,16 +2,36 @@ const express = require('express');
 const cors = require('cors');
 const sql = require('mssql');
 
-// Import gameController (Đảm bảo file này đã được cập nhật các hàm mới)
-const gameController = require('./controllers/gameController'); 
+// =============================================================
+// 1. IMPORT ROUTES (KHAI BÁO 1 LẦN DUY NHẤT TẠI ĐÂY)
+// =============================================================
+const gameRoutes = require('./routes/gameRoutes');
 
+// --- SỬA LẠI DÒNG NÀY ---
+const historyRoutes = require('./routes/historyRoutes'); 
+
+const leaderboardRoutes = require('./routes/leaderboardRoutes'); 
+
+// Các route tùy chọn (Dùng try/catch để không lỗi nếu file chưa tồn tại)
+let profileRoutes, reviewRoutes;
+try {
+    profileRoutes = require('./routes/profileRoutes');
+} catch (error) { console.log("⚠️ Chưa có file profileRoutes (bỏ qua)"); }
+
+try {
+    reviewRoutes = require('./routes/reviewRoutes');
+} catch (error) { console.log("⚠️ Chưa có file reviewRoutes (bỏ qua)"); }
+
+// =============================================================
+// 2. CẤU HÌNH SERVER & DB
+// =============================================================
 const app = express();
 const PORT = 5000;
 
 app.use(cors()); 
 app.use(express.json());
 
-// 1. Cấu hình kết nối SQL Server
+// Cấu hình kết nối SQL Server
 const dbConfig = {
     user: 'GameUser',
     password: '123456',
@@ -35,7 +55,7 @@ async function connectDB() {
 connectDB();
 
 // =============================================================
-// PHẦN 1: API ĐĂNG NHẬP (GIỮ NGUYÊN)
+// 3. API ĐĂNG NHẬP (AUTH)
 // =============================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
@@ -66,35 +86,26 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // =============================================================
-// PHẦN 2: API GAME (CẬP NHẬT THÊM ROUND 2)
+// 4. ĐĂNG KÝ ROUTES (SỬ DỤNG API)
 // =============================================================
 
-// --- ROUND 1: NỐI TỪ ---
-app.get('/api/game/round1', gameController.getRound1Data);
-app.post('/api/game/submit-round1', gameController.submitRound1);
+// Route cho Game (Round 1 -> 4)
+app.use('/api/game', gameRoutes); 
 
-// --- ROUND 2: SẮP XẾP CÂU (MỚI THÊM) ---
-// Route lấy dữ liệu các câu cần sắp xếp
-app.get('/api/game/round2', gameController.getRound2Data);
+// Route cho Lịch sử (History)
+app.use('/api/history', historyRoutes);
 
-// Route nộp điểm Round 2
-app.post('/api/game/submit-round2', gameController.submitRound2);
+// Route cho Bảng xếp hạng
+app.use('/api/leaderboard', leaderboardRoutes);
+
+// Route cho Profile & Review (Nếu có)
+if (profileRoutes) app.use('/api/profile', profileRoutes);
+if (reviewRoutes) app.use('/api/review', reviewRoutes);
 
 
 // =============================================================
-// PHẦN 3: CÁC MODULE KHÁC
+// 5. KHỞI ĐỘNG SERVER
 // =============================================================
-try {
-    const profileRoutes = require('./routes/profileRoutes');
-    app.use('/api/profile', profileRoutes);
-} catch (error) { console.log("⚠️ Bỏ qua profileRoutes"); }
-
-try {
-    const reviewRoutes = require('./routes/reviewRoutes');
-    app.use('/api/review', reviewRoutes);
-} catch (error) { console.log("⚠️ Bỏ qua reviewRoutes"); }
-
-// === KHỞI ĐỘNG SERVER ===
 app.listen(PORT, () => {
     console.log(`🚀 Server đang chạy tại: http://localhost:${PORT}`);
 });

@@ -88,28 +88,17 @@
         <div class="header">
             <div class="title">ÔN TẬP KIẾN THỨC</div>
             <select id="unitSelect" onchange="loadAllData()">
-                <option value="">-- Chọn bài học --</option>
-                <option value="1">Unit 1: All about me!</option>
-                <option value="2">Unit 2: Our homes</option>
-                <option value="3">Unit 3: My foreign friends</option>
-                <option value="4">Unit 4: Our free-time activities</option>
-                <option value="5">Unit 5: My future job</option>
-                <option value="6">Unit 6: Our school rooms</option>
-                <option value="7">Unit 7: Our favourite school activities</option>
-                <option value="8">Unit 8: In our classroom</option>
-                <option value="9">Unit 9: Our outdoor activities</option>
-                <option value="10">Unit 10: Our school trip</option>
-                <option value="11">Unit 11: Family time</option>
-                <option value="12">Unit 12: Our Tet Holiday</option>
-                <option value="13">Unit 13: Our special days</option>
-                <option value="14">Unit 14: Staying healthy</option>
-                <option value="15">Unit 15: Our health</option>
-                <option value="16">Unit 16: Seasons and the weather</option>
-                <option value="17">Unit 17: Stories for children</option>
-                <option value="18">Unit 18: Means of transport</option>
-                <option value="19">Unit 19: Places of interest</option>
-                <option value="20">Unit 20: Our summer holidays</option>
-            </select>
+    <option value="">-- Chọn bài học --</option>
+    <option value="0">Unit 0: Getting Started</option>
+    <option value="1">Unit 1: Animal Habitats</option>
+    <option value="2">Unit 2: Let's Eat!</option>
+    <option value="3">Unit 3: On the Move!</option>
+    <option value="4">Unit 4: Our Senses</option>
+    <option value="5">Unit 5: Our Health</option>
+    <option value="6">Unit 6: The World of School</option>
+    <option value="7">Unit 7: The World of Work</option>
+    <option value="8">Unit 8: Fantastic Holidays and Festivals</option>
+</select>
         </div>
 
         <div class="content-wrapper">
@@ -185,6 +174,7 @@
     }
 
     // 3. Hàm vẽ bảng Từ Vựng
+    // 3. Hàm vẽ bảng Từ Vựng (ĐÃ SỬA: XÓA CỘT VÍ DỤ)
     function renderVocab(data) {
         const container = document.getElementById("vocabContent");
         if (data.length === 0) {
@@ -195,9 +185,8 @@
         let html = `<table>
             <thead>
                 <tr>
-                    <th width="30%">Từ vựng</th>
-                    <th width="30%">Nghĩa</th>
-                    <th>Ví dụ</th>
+                    <th width="40%">Từ vựng</th>
+                    <th>Nghĩa</th>
                 </tr>
             </thead>
             <tbody>`;
@@ -208,18 +197,15 @@
                     <td>
                         <div class="word-text">${item.Word}</div>
                         <div class="word-type">${item.WordType || ''}</div>
-                        <div style="font-size:0.85rem">${item.Pronunciation || ''}</div>
-                    </td>
-                    <td>${item.Meaning}</td>
-                    <td>
-                        <span class="example-text">"${item.Example || ''}"</span>
+                        </td>
+                    <td style="vertical-align: middle;">
+                        ${item.Meaning}
                     </td>
                 </tr>`;
         });
         html += '</tbody></table>';
         container.innerHTML = html;
     }
-
     // 4. Hàm vẽ danh sách Ngữ Pháp
     function renderGrammar(data) {
         const container = document.getElementById("grammarContent");

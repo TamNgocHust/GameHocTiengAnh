@@ -1,18 +1,5 @@
 const sql = require('mssql');
 
-// Cấu hình Database (Nên khớp với server.js)
-const config = {
-    user: 'GameUser',
-    password: '123456',
-    server: 'DESKTOP-HRMHVJB\\SQLEXPRESS', // Chú ý: Dùng 2 dấu gạch chéo \\
-    database: 'GameHocTiengAnh1',
-    options: {
-        encrypt: false,
-        trustServerCertificate: true
-    }
-};
-
-// Hàm tiện ích: Xáo trộn mảng
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -23,212 +10,169 @@ function shuffleArray(array) {
 
 const gameController = {
 
-    // =========================================================
-    // ROUND 1: NỐI TỪ VỰNG (MATCHING)
-    // =========================================================
-    
-    // GET /api/game/round1
+    // --- ROUND 1: NỐI TỪ ---
     getRound1Data: async (req, res) => {
         try {
-            // Sử dụng new sql.Request() sẽ tự động dùng kết nối toàn cục từ server.js
-            // Nếu server.js chưa kết nối, dòng này sẽ lỗi. Đảm bảo server.js đã chạy connectDB().
+            const { unitId } = req.params;
             const request = new sql.Request();
-
-            // 1. Lấy ngẫu nhiên 10 cặp từ Topic "Game Round 1 Pool"
-            const query = `
-                SELECT TOP 10 o.OptionID, o.OptionContent
-                FROM QuestionOptions o
-                JOIN Questions q ON o.QuestionID = q.QuestionID
-                JOIN Topics t ON q.TopicID = t.TopicID
-                WHERE t.TopicName = N'Game Round 1 Pool' 
-                  AND q.QuestionType = 'matching'
-                ORDER BY NEWID()
-            `;
-
-            const result = await request.query(query);
-
-            if (result.recordset.length === 0) {
-                return res.status(404).json({ msg: "Chưa có dữ liệu cho Round 1. Hãy chạy Script SQL tạo câu hỏi!" });
-            }
-
-            let leftCol = [];
-            let rightCol = [];
-
-            // Xử lý JSON {"L": "...", "R": "..."}
-            result.recordset.forEach(row => {
-                try {
-                    const content = JSON.parse(row.OptionContent); 
-                    
-                    leftCol.push({
-                        id: row.OptionID,
-                        text: content.L  // Tiếng Anh
-                    });
-
-                    rightCol.push({
-                        id: row.OptionID,
-                        text: content.R  // Tiếng Việt
-                    });
-                } catch (e) {
-                    console.error("Lỗi JSON tại ID: " + row.OptionID);
-                }
-            });
-
-            // Xáo trộn cột phải
-            rightCol = shuffleArray(rightCol);
-
-            res.json({
-                success: true,
-                roundName: "Vòng 1: Thử thách từ vựng",
-                totalPairs: 10,
-                data: {
-                    leftColumn: leftCol,
-                    rightColumn: rightCol
-                }
-            });
-
-        } catch (err) {
-            console.error("❌ Lỗi Round 1:", err);
-            res.status(500).send("Lỗi Server Round 1");
-        }
+            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
+            const result = await request.query(`SELECT TOP 10 o.OptionID, o.OptionContent FROM QuestionOptions o JOIN Questions q ON o.QuestionID = q.QuestionID JOIN Topics t ON q.TopicID = t.TopicID WHERE t.TopicName LIKE @TopicPattern AND q.QuestionType = 'matching' ORDER BY NEWID()`);
+            if (result.recordset.length === 0) return res.status(404).json({ success: false, message: "No data" });
+            let leftCol = [], rightCol = [];
+            result.recordset.forEach(row => { try { const c = JSON.parse(row.OptionContent); leftCol.push({ id: row.OptionID, text: c.L }); rightCol.push({ id: row.OptionID, text: c.R }); } catch (e) {} });
+            res.json({ success: true, totalPairs: leftCol.length, data: { leftColumn: shuffleArray(leftCol), rightColumn: shuffleArray(rightCol) } });
+        } catch (err) { res.status(500).json({ success: false }); }
     },
 
-    // POST /api/game/submit-round1
     submitRound1: async (req, res) => {
         try {
-            const { studentId, answers, timeTaken } = req.body; 
-            
-            // Logic chấm điểm Server (An toàn hơn để Client tự chấm)
-            let score = 10;
-            let wrongCount = 0;
+            // Nhận thêm difficulty
+            const { userId, answers, timeTaken, difficulty } = req.body;
+            let score = 10, wrongCount = 0;
+            if (answers) answers.forEach(p => { if (p.leftId !== p.rightId) wrongCount++; });
+            score = Math.max(0, score - wrongCount);
 
-            answers.forEach(pair => {
-                if (pair.leftId !== pair.rightId) {
-                    wrongCount++;
-                }
-            });
+            if (userId) {
+                const reqSQL = new sql.Request();
+                reqSQL.input('sid', userId).input('s', score).input('t', timeTaken);
+                // Thêm input Difficulty
+                reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal'); 
 
-            score = score - wrongCount;
-            if (score < 0) score = 0;
-            
-            // Quy đổi ra sao (Ví dụ: 10đ = 3 sao, 8-9đ = 2 sao, 5-7đ = 1 sao, dưới 5 = 0 sao)
-            let stars = 0;
-            if (score === 10) stars = 3;
-            else if (score >= 8) stars = 2;
-            else if (score >= 5) stars = 1;
-
-            const isPassed = score >= 5;
-
-            // LƯU VÀO DATABASE
-            if (studentId) {
-                const request = new sql.Request();
-                // Giả sử GameID = 1 là Round 1
-                const queryHistory = `
-                    INSERT INTO PlayHistory (StudentID, GameID, Score, Stars, TimeTaken, PlayedAt)
-                    VALUES (@sid, 1, @score, @stars, @time, GETDATE())
-                `;
-                request.input('sid', sql.Int, studentId);
-                request.input('score', sql.Int, score);
-                request.input('stars', sql.Int, stars);
-                request.input('time', sql.Int, timeTaken || 0);
-                
-                await request.query(queryHistory);
+                // Câu lệnh INSERT mới (Bỏ Stars, thêm Difficulty)
+                await reqSQL.query("INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 1, @s, @t, GETDATE(), @diff)");
             }
-
-            res.json({
-                success: true,
-                isPassed: isPassed,
-                score: score,
-                stars: stars,
-                message: isPassed ? "Chúc mừng! Bạn đã qua màn." : "Rất tiếc, hãy thử lại nhé!",
-                nextRoundUrl: isPassed ? "/game/round2" : null
-            });
-
-        } catch (err) {
-            console.error(err);
-            res.status(500).send("Lỗi chấm điểm Round 1");
-        }
+            res.json({ success: true, isPassed: score >= 5, score });
+        } catch (err) { console.error(err); res.status(500).json({ success: false }); }
     },
 
-    // =========================================================
-    // ROUND 2: SẮP XẾP CÂU (SCRAMBLE)
-    // =========================================================
-
-    // GET /api/game/round2
+    // --- ROUND 2: SẮP XẾP CÂU ---
     getRound2Data: async (req, res) => {
-        console.log("📡 Đang lấy dữ liệu Round 2...");
         try {
+            const { unitId } = req.params;
             const request = new sql.Request();
-
-            // Lấy 5 câu ngẫu nhiên từ Topic "Game Round 2 Pool"
-            // Lưu ý: OptionContent ở đây là câu tiếng Anh hoàn chỉnh (VD: "I love my family")
-            const query = `
-                SELECT TOP 10 o.OptionID, o.OptionContent
-                FROM QuestionOptions o
-                JOIN Questions q ON o.QuestionID = q.QuestionID
-                JOIN Topics t ON q.TopicID = t.TopicID
-                WHERE t.TopicName = N'Game Round 2 Pool' 
-                  AND q.QuestionType = 'scramble'
-                ORDER BY NEWID()
-            `;
-
-            const result = await request.query(query);
-
-            if (result.recordset.length === 0) {
-                return res.status(404).json({ msg: "Chưa có dữ liệu Round 2. Hãy chạy script SQL tạo Round 2!" });
-            }
-
-            // Trả về danh sách câu đúng. Frontend sẽ tự lo việc:
-            // 1. Split (tách từ) -> 2. Shuffle (xáo trộn) -> 3. Hiển thị
-            res.json({
-                success: true,
-                roundName: "Vòng 2: Trật tự câu",
-                totalSentences: 10,
-                data: result.recordset // Trả về mảng [{OptionContent: "Câu đúng..."}, ...]
-            });
-
-        } catch (err) {
-            console.error("❌ Lỗi lấy dữ liệu Round 2:", err);
-            res.status(500).json({ success: false, message: "Lỗi Server Round 2" });
-        }
+            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
+            const result = await request.query(`SELECT TOP 10 o.OptionID, o.OptionContent FROM QuestionOptions o JOIN Questions q ON o.QuestionID = q.QuestionID JOIN Topics t ON q.TopicID = t.TopicID WHERE t.TopicName LIKE @TopicPattern AND q.QuestionType = 'scramble' ORDER BY NEWID()`);
+            if (result.recordset.length === 0) return res.status(404).json({ success: false, message: "No data" });
+            res.json({ success: true, totalSentences: result.recordset.length, data: result.recordset });
+        } catch (err) { res.status(500).json({ success: false }); }
     },
 
-    // POST /api/game/submit-round2
     submitRound2: async (req, res) => {
-        // Đối với Round 2, Frontend thường chấm điểm (so sánh chuỗi user xếp với chuỗi gốc)
-        // Sau đó Frontend gửi kết quả (Score, Stars) về đây để lưu.
         try {
-            const { studentId, score, stars, timeTaken } = req.body;
+            const { userId, score, timeTaken, difficulty } = req.body;
+            if (userId) {
+                const reqSQL = new sql.Request();
+                reqSQL.input('sid', userId).input('s', score).input('t', timeTaken);
+                reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
 
-            console.log(`💾 Lưu điểm Round 2 - User: ${studentId}, Score: ${score}, Stars: ${stars}`);
+                await reqSQL.query("INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 2, @s, @t, GETDATE(), @diff)");
+            }
+            res.json({ success: true, isPassed: score >= 5 });
+        } catch (err) { res.status(500).json({ success: false }); }
+    },
 
-            if (studentId) {
-                const request = new sql.Request();
-                
-                // Giả sử GameID = 2 là Round 2
-                // (Đảm bảo bạn đã INSERT INTO Games một bản ghi có ID = 2 hoặc sửa số này cho khớp DB)
-                const query = `
-                    INSERT INTO PlayHistory (StudentID, GameID, Score, Stars, TimeTaken, PlayedAt)
-                    VALUES (@sid, 2, @score, @stars, @time, GETDATE())
-                `;
-                
-                request.input('sid', sql.Int, studentId);
-                request.input('score', sql.Int, score);
-                request.input('stars', sql.Int, stars);
-                request.input('time', sql.Int, timeTaken || 0);
+    // --- ROUND 3: TRẮC NGHIỆM ---
+    getRound3Data: async (req, res) => {
+        try {
+            const { unitId } = req.params;
+            const request = new sql.Request();
+            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
 
-                await request.query(query);
+            const qResult = await request.query(`
+                SELECT TOP 10 q.QuestionID, q.QuestionText 
+                FROM Questions q JOIN Topics t ON q.TopicID = t.TopicID 
+                WHERE t.TopicName LIKE @TopicPattern AND q.QuestionType = 'multiple_choice' 
+                ORDER BY NEWID()
+            `);
+
+            if (qResult.recordset.length === 0) return res.status(404).json({ success: false, message: "No data" });
+            const qIds = qResult.recordset.map(q => q.QuestionID);
+            
+            const optResult = await new sql.Request().query(`SELECT * FROM QuestionOptions WHERE QuestionID IN (${qIds.join(',')}) ORDER BY NEWID()`);
+
+            const data = qResult.recordset.map(q => ({
+                id: q.QuestionID, 
+                question: q.QuestionText,
+                options: optResult.recordset
+                    .filter(o => o.QuestionID === q.QuestionID)
+                    .map(o => {
+                        const correctVal = (o.IsCorrect !== undefined) ? o.IsCorrect : o.isCorrect;
+                        return { id: o.OptionID, text: o.OptionContent, IsCorrect: correctVal };
+                    })
+            }));
+            res.json({ success: true, data });
+        } catch (err) { res.status(500).json({ success: false }); }
+    },
+
+    submitRound3: async (req, res) => {
+        try {
+            // Log body để debug nếu cần
+            // console.log("Submit R3:", req.body);
+            const { userId, answers, timeTaken, difficulty } = req.body;
+            let score = 0;
+            
+            if (answers && answers.length > 0) {
+                const selectedIds = answers.map(a => a.selectedOptionId).filter(id => id);
+                if (selectedIds.length > 0) {
+                    const result = await new sql.Request().query(`
+                        SELECT COUNT(*) as Cnt FROM QuestionOptions 
+                        WHERE OptionID IN (${selectedIds.join(',')}) AND (IsCorrect = 1 OR IsCorrect = 'true')
+                    `);
+                    score = result.recordset[0].Cnt;
+                }
             }
 
-            res.json({ 
-                success: true, 
-                message: "Lưu kết quả Round 2 thành công!",
-                isPassed: score >= 5 // Ví dụ luật: trên 5 điểm là qua
-            });
+            if (userId) {
+                const reqSQL = new sql.Request();
+                reqSQL.input('sid', userId).input('s', score).input('t', timeTaken);
+                reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
 
-        } catch (err) {
-            console.error("❌ Lỗi lưu điểm Round 2:", err);
-            res.status(500).json({ success: false, message: "Lỗi Database khi lưu Round 2" });
-        }
+                await reqSQL.query("INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 3, @s, @t, GETDATE(), @diff)");
+            }
+            res.json({ success: true, isPassed: score >= 5, score, total: 10 });
+        } catch (err) { console.error(err); res.status(500).json({ success: false }); }
+    },
+
+    // --- ROUND 4: ĐIỀN TỪ ---
+    getRound4Data: async (req, res) => {
+        try {
+            const { unitId } = req.params;
+            const request = new sql.Request();
+            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
+            const qResult = await request.query(`SELECT TOP 10 q.QuestionID, q.QuestionText, q.CorrectAnswer FROM Questions q JOIN Topics t ON q.TopicID = t.TopicID WHERE t.TopicName LIKE @TopicPattern AND q.QuestionType = 'fill_in_blank' ORDER BY NEWID()`);
+            if (qResult.recordset.length === 0) return res.status(404).json({ success: false, message: "No data" });
+            const data = qResult.recordset.map(q => ({ id: q.QuestionID, question: q.QuestionText, correctWord: q.CorrectAnswer }));
+            res.json({ success: true, data });
+        } catch (err) { res.status(500).json({ success: false }); }
+    },
+
+    submitRound4: async (req, res) => {
+        try {
+            const { userId, score, timeTaken, difficulty } = req.body;
+            if (userId) {
+                const reqSQL = new sql.Request();
+                reqSQL.input('sid', sql.Int, userId);
+                reqSQL.input('s', sql.Int, score);
+                reqSQL.input('t', sql.Int, timeTaken);
+                reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
+                
+                // 1. Lưu điểm R4 (Có Difficulty)
+                await reqSQL.query(`INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 4, @s, @t, GETDATE(), @diff)`);
+
+                // 2. Tính TỔNG
+                const historyResult = await reqSQL.query(`SELECT GameID, Score, TimeTaken FROM PlayHistory WHERE StudentID = @sid ORDER BY PlayedAt DESC`);
+                const gameResults = {};
+                historyResult.recordset.forEach(row => {
+                    if (!gameResults[row.GameID]) gameResults[row.GameID] = { score: row.Score, time: row.TimeTaken };
+                });
+                let totalScore = 0, totalTime = 0;
+                [1, 2, 3, 4].forEach(gid => {
+                    if (gameResults[gid]) { totalScore += gameResults[gid].score || 0; totalTime += gameResults[gid].time || 0; }
+                });
+
+                res.json({ success: true, isPassed: score >= 5, roundScore: score, totalScore: totalScore, totalTime: totalTime });
+            } else { res.json({ success: false, message: "User ID missing" }); }
+        } catch (err) { console.error(err); res.status(500).json({ success: false }); }
     }
 };
 

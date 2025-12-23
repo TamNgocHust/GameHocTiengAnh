@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lịch sử đấu - Mushroom Kingdom</title>
+  <style>
+    /* --- CSS STYLE --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+    body { background: url("screen/phongnen.jpg") no-repeat center center fixed; background-size: cover; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px; }
+    .overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.35); }
+
+    .card { position: relative; z-index: 1; width: 1050px; max-width: 96vw; height: 90vh; background: rgba(255, 245, 210, 0.97);
+      border: 4px solid #ff8c42; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+      display:flex; flex-direction:column; padding:18px; overflow:hidden; }
+
+    .top-user { position:absolute; top:-52px; right:0; background: rgba(255,245,210,0.95); border:2px solid #ffb347;
+      padding:8px 18px; border-radius:999px; font-weight:700; box-shadow:0 6px 16px rgba(0,0,0,0.25); color:#553300; }
+
+    .header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .title { font-size:1.8rem; font-weight:800; color:#d13625; text-transform:uppercase; text-shadow:0 2px 0 #ffd76b; }
+    .filters { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    label { font-weight:800; color:#553300; }
+    select, input[type="date"] { padding:8px 12px; border-radius:12px; border:2px solid #ffb347; background:#fffaf0; outline:none; font-weight:600; }
+
+    .panel { margin-top:14px; background:#fff; border-radius:16px; border:2px solid #ffe0b2; display:flex; flex-direction:column; overflow:hidden; flex:1; }
+    .panel-head { padding:12px 14px; background:#fff3e0; border-bottom:2px dashed #ffe0b2; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .panel-title { font-weight:900; color:#e65100; } .panel-sub { font-size:0.9rem; color:#7a4a20; }
+    .msg { font-weight:700; color:#1f2937; } .msg.err{color:#b91c1c;} .msg.ok{color:#166534;}
+    .scroll { flex:1; overflow:auto; }
+
+    table { width:100%; border-collapse:collapse; }
+    th { position:sticky; top:0; z-index:2; background:#fff8e1; color:#bf360c; padding:10px; text-align:left; border-bottom:1px solid #eee; font-weight:900; }
+    td { padding:10px; border-bottom:1px solid #f0f0f0; } tr:hover td { background:#fffdf6; }
+    
+    /* BADGE ĐỘ KHÓ */
+    .diff-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; display: inline-block; }
+    .diff-easy { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .diff-normal { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .diff-hard { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .score-high { color: #166534; font-weight: bold; }
+    .score-low { color: #b91c1c; font-weight: bold; }
+    .muted { color:#777; }
+
+    .footer { display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:12px; flex-wrap:wrap; }
+    .btn { border:none; cursor:pointer; padding:10px 22px; border-radius:999px; font-weight:900; color:#fff; background:#ff8c42; box-shadow:0 6px 0 #c65f18; }
+    .btn:hover { transform:translateY(-1px); box-shadow:0 7px 0 #c65f18; } .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #c65f18; }
+    .btn-refresh { background:#3eb13e; box-shadow:0 6px 0 #287427; }
+  </style>
+</head>
+
+<body>
+  <div class="overlay"></div>
+
+  <div class="card">
+    <div class="top-user">User: <span id="showUser" style="color:#d84315">...</span></div>
+
+    <div class="header">
+      <div>
+        <div class="title">History</div>
+        <div class="muted" style="margin-top:6px">Lịch sử đấu (Giờ đã hiển thị đúng)</div>
+      </div>
+
+      <div class="filters">
+        <label for="gameSelect">Round:</label>
+        <select id="gameSelect">
+            <option value="">Tất cả</option>
+            <option value="Round 1">Round 1</option>
+            <option value="Round 2">Round 2</option>
+            <option value="Round 3">Round 3</option>
+            <option value="Round 4">Round 4</option>
+        </select>
+
+        <label for="fromDate">Từ:</label>
+        <input id="fromDate" type="date" />
+
+        <label for="toDate">Đến:</label>
+        <input id="toDate" type="date" />
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title" id="panelTitle">Đang tải...</div>
+          <div class="panel-sub" id="panelSub">&nbsp;</div>
+        </div>
+        <div class="msg" id="msg">&nbsp;</div>
+      </div>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:180px">Thời gian</th>
+              <th>Vòng thi (Round)</th>
+              <th style="width:120px">Độ Khó</th> 
+              <th style="width:100px">Điểm</th>
+              <th style="width:150px">Thời gian làm</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="5" class="muted" style="padding:14px">Đang kết nối Server...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn" onclick="location.href='menu.html'">← Quay lại Menu</button>
+      <button class="btn btn-refresh" onclick="initHistory()">⟳ Tải lại</button>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:5000/api'; 
+    const userId = localStorage.getItem('currentUserID');
+    const fullname = localStorage.getItem('fullname');
+    let allHistoryData = [];
+
+    function setMsg(text, type) {
+      const el = document.getElementById('msg');
+      el.textContent = text || '';
+      el.className = 'msg' + (type ? (' ' + type) : '');
+    }
+
+    // --- HÀM FIX LỖI GIỜ ---
+    function fmtDate(dt) {
+      if (!dt) return '';
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return '';
+      
+      // FIX: Database lưu giờ Việt Nam nhưng browser hiểu nhầm là UTC nên cộng thêm 7h.
+      // Giải pháp: Dùng getUTC... để lấy đúng con số gốc từ database mà không convert nữa.
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = d.getUTCFullYear();
+      
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mi = String(d.getUTCMinutes()).padStart(2, '0');
+      
+      return `${hh}:${mi} ${dd}/${mm}/${yyyy}`;
+    }
+
+    function fmtTimeTaken(sec) {
+      const s = Number(sec) || 0;
+      if (s <= 0) return '-';
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return m > 0 ? `${m}p ${r}s` : `${r}s`;
+    }
+
+    async function initHistory() {
+      if (!userId) { 
+        alert('Bạn chưa đăng nhập!'); 
+        location.href = 'login.html'; 
+        return; 
+      }
+
+      setMsg('⏳ Đang tải dữ liệu...', '');
+      const tbody = document.getElementById('tbody');
+      
+      try {
+        const res = await fetch(`${API}/history/${userId}`);
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Lỗi server');
+        }
+
+        allHistoryData = data.data || [];
+        renderTable();
+        setMsg(`✅ Đã tải xong ${allHistoryData.length} kết quả`, 'ok');
+
+      } catch (err) {
+        console.error(err);
+        setMsg('⚠️ Không thể kết nối Server', 'err');
+        tbody.innerHTML = `<tr><td colspan="5" class="muted" style="padding:14px; text-align:center">Lỗi kết nối. Hãy kiểm tra server (node server.js).</td></tr>`;
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tbody');
+      const filterGame = document.getElementById('gameSelect').value;
+      const filterFrom = document.getElementById('fromDate').value;
+      const filterTo = document.getElementById('toDate').value;
+
+      let filtered = allHistoryData.filter(item => {
+        // Lọc theo tên Game
+        if (filterGame && !item.gameName.includes(filterGame)) return false;
+        
+        // Lọc theo ngày
+        if (filterFrom || filterTo) {
+            const itemDate = new Date(item.playedAt).toISOString().split('T')[0];
+            if (filterFrom && itemDate < filterFrom) return false;
+            if (filterTo && itemDate > filterTo) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('panelTitle').textContent = `Kết quả (${filtered.length})`;
+      
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="muted" style="padding:20px; text-align:center">Không tìm thấy kết quả nào phù hợp.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(h => {
+        // Xử lý UI cho Độ Khó
+        let diffClass = 'diff-normal';
+        let diffText = h.difficulty || 'Normal';
+        if(diffText.toLowerCase() === 'easy') diffClass = 'diff-easy';
+        if(diffText.toLowerCase() === 'hard') diffClass = 'diff-hard';
+
+        // Xử lý UI cho Điểm
+        let scoreClass = h.score >= 5 ? 'score-high' : 'score-low';
+
+        return `
+            <tr>
+              <td><b>${fmtDate(h.playedAt)}</b></td>
+              <td style="color:#d84315; font-weight:700">${h.gameName}</td>
+              <td><span class="diff-badge ${diffClass}">${diffText}</span></td>
+              <td class="${scoreClass}">${h.score}/10</td>
+              <td class="muted">${fmtTimeTaken(h.timeTaken)}</td>
+            </tr>
+          `;
+      }).join('');
+    }
+
+    window.onload = () => {
+      document.getElementById('showUser').textContent = fullname || "User";
+      
+      // Default Date Filter
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      document.getElementById('fromDate').value = `${y}-${m}-01`;
+      document.getElementById('toDate').value = now.toISOString().split('T')[0];
+
+      // Event Listeners
+      document.getElementById('gameSelect').addEventListener('change', renderTable);
+      document.getElementById('fromDate').addEventListener('change', renderTable);
+      document.getElementById('toDate').addEventListener('change', renderTable);
+
+      initHistory();
+    };
+  </script>
+</body>
+</html>

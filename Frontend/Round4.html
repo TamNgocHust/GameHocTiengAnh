@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Round 4: Final Challenge</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    /* CSS STYLE */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+    body { height: 100vh; width: 100vw; background: #000; display: flex; justify-content: center; align-items: center; background-image: url('screen/mushroom.jpg'); background-size: cover; overflow: hidden; }
+    .bg-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 0; }
+    .overlay-ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+    
+    .top-right { position: absolute; top: 15px; right: 20px; background: rgba(255, 245, 210, 0.95); padding: 8px 16px; border-radius: 999px; display: flex; align-items: center; gap: 12px; border: 2px solid #ffb347; pointer-events: auto; }
+    .username-label { font-weight: 600; color: #553300; }
+    .logout-btn { cursor: pointer; padding: 4px 10px; border-radius: 999px; border: none; background: #ff4b3a; color: #fff; font-weight: bold; }
+    .btn-back { position: absolute; bottom: 15px; left: 20px; padding: 8px 20px; border-radius: 50px; background: white; border: none; font-weight: bold; cursor: pointer; pointer-events: auto; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+
+    #gameWrapper { position: relative; z-index: 10; width: 1000px; max-width: 95vw; height: 80vh; background: rgba(255, 255, 255, 0.96); border-radius: 20px; border: 6px solid #00897b; box-shadow: 0 15px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden; }
+    .game-header { height: 80px; background: #e0f2f1; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; border-bottom: 3px solid #80cbc4; }
+    .game-title { font-size: 1.6rem; font-weight: 800; color: #00695c; text-transform: uppercase; }
+    .game-stats { font-size: 1.2rem; font-weight: 700; color: #004d40; display: flex; gap: 20px; }
+    .stat-box span { color: #d32f2f; }
+
+    .input-area { flex: 1; display: flex; flex-direction: column; padding: 40px; align-items: center; justify-content: center; gap: 25px; overflow-y: auto; }
+    .question-card { background: #e0f2f1; padding: 30px; width: 100%; max-width: 850px; border: 3px dashed #00897b; border-radius: 20px; text-align: center; }
+    .question-text { font-size: 1.8rem; font-weight: 700; color: #004d40; line-height: 1.5; }
+
+    /* HINT BOXES (Ô Vuông) */
+    .word-hint-container { display: flex; gap: 8px; justify-content: center; margin-bottom: 5px; flex-wrap: wrap; }
+    .char-box {
+        width: 45px; height: 50px;
+        border: 2px solid #00897b; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.8rem; font-weight: bold; color: #004d40;
+        background: white; box-shadow: 0 3px 0 #b2dfdb;
+        text-transform: uppercase;
+    }
+    .char-box.space { border: none; background: transparent; box-shadow: none; width: 20px; }
+
+    .answer-input { width: 100%; max-width: 400px; padding: 15px 25px; font-size: 1.5rem; border: 3px solid #b2dfdb; border-radius: 50px; text-align: center; outline: none; transition: 0.3s; color: #00695c; font-weight: bold; letter-spacing: 2px; }
+    .answer-input:focus { border-color: #00897b; box-shadow: 0 0 15px rgba(0, 137, 123, 0.3); }
+    .answer-input.correct { border-color: #4caf50; background: #e8f5e9; color: #2e7d32; }
+    .answer-input.wrong { border-color: #f44336; background: #ffebee; color: #c62828; animation: shake 0.4s; }
+
+    .btn-submit-answer { background: #00897b; color: white; padding: 12px 40px; border: none; border-radius: 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #004d40; transition: 0.2s; }
+    .btn-submit-answer:hover { transform: translateY(-3px); }
+    .btn-submit-answer:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
+
+    /* RESULTS */
+    #loadingOverlay, #resultOverlay { position: absolute; inset: 0; background: rgba(255,255,255,0.98); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    .hidden { display: none !important; }
+
+    .result-box { background: #fff; padding: 40px 50px; border-radius: 30px; border: 6px solid #00897b; box-shadow: 0 25px 60px rgba(0,0,0,0.3); width: 500px; max-width: 95%; animation: popIn 0.4s ease; }
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    .result-icon { font-size: 4.5rem; margin-bottom: 10px; display: block; }
+    .result-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 15px; text-transform: uppercase; display: block; width: 100%; text-align: center; }
+    
+    .stats-summary { background: #f0f4c3; padding: 15px; border-radius: 15px; margin-bottom: 25px; color: #33691e; font-weight: 600; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+    .summary-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #c5e1a5; padding-bottom: 5px; }
+    
+    .btn-home { padding: 12px 25px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; color: white; margin: 5px; font-size: 1rem; transition: 0.2s; width: 100%; display: block; margin-bottom: 10px; }
+    .btn-success { background: #4caf50; box-shadow: 0 4px 0 #2e7d32; }
+    .btn-rank { background: #fbc02d; box-shadow: 0 4px 0 #f57f17; color: #3e2723; }
+    .btn-retry { background: #ff9800; box-shadow: 0 4px 0 #ef6c00; }
+    .btn-menu { background: #9e9e9e; box-shadow: 0 4px 0 #616161; }
+
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+</style>
+</head>
+<body>
+
+<div class="bg-overlay"></div>
+<div class="overlay-ui">
+    <div class="top-right"><span class="username-label" id="showUser">User</span><button class="logout-btn" onclick="logout()">Logout</button></div>
+    <div class="bottom-left"><button class="btn-back" onclick="window.location.href='level.html'">← Quay lại</button></div>
+</div>
+
+<div id="gameWrapper">
+    <div class="game-header">
+        <div class="game-title" id="gameTitleDisplay">✍️ Round 4</div>
+        <div class="game-stats">
+            <div class="stat-box"><i class="fas fa-pen"></i> Câu: <span id="currentQ">1</span>/10</div>
+            <div class="stat-box"><i class="fas fa-star"></i> Điểm: <span id="scoreDisplay">0</span></div>
+            <div class="stat-box"><i class="fas fa-clock"></i> <span id="timerDisplay">--:--</span></div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <h2 style="color:#00695c;">Đang tải câu hỏi...</h2>
+    </div>
+
+    <div class="input-area" id="gameArea">
+        <div class="question-card">
+            <div class="question-text" id="questionText">...</div>
+        </div>
+        
+        <div class="word-hint-container" id="hintContainer"></div>
+
+        <div class="input-group">
+            <input type="text" id="answerInput" class="answer-input" placeholder="Nhập đáp án..." autocomplete="off">
+        </div>
+        
+        <button class="btn-submit-answer" id="btnSubmit" onclick="checkAnswer()">Kiểm tra</button>
+        <div id="feedbackMsg" style="height: 20px; color: #d32f2f; font-weight: bold;"></div>
+    </div>
+
+    <div id="resultOverlay" class="hidden">
+        <div class="result-box">
+            <div id="resIcon" class="result-icon"></div>
+            <div id="resTitle" class="result-title"></div>
+            <div class="stats-summary" id="finalStats">
+                <div class="summary-row"><span>Điểm Round 4:</span><span id="r4Score">...</span></div>
+                <div class="summary-row" style="font-weight: 800; color: #1b5e20;"><span>TỔNG ĐIỂM (4 Vòng):</span><span id="grandTotalScore">...</span></div>
+                <div class="summary-row"><span>Tổng thời gian:</span><span id="grandTotalTime">...</span></div>
+            </div>
+            <div id="resButtons"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:5000/api/game'; 
+    let unitId = localStorage.getItem("gameConfig_UnitId");
+    let diff = localStorage.getItem("gameConfig_Diff") || 'normal';
+    let duration = diff === 'easy' ? 240 : (diff === 'hard' ? 90 : 180);
+
+    let questions = [], currIdx = 0, currentScore = 0, timer, timeLeft = duration, isChecking = false;
+    const userId = localStorage.getItem("currentUserID");
+    
+    document.getElementById("showUser").textContent = localStorage.getItem("fullname") || "Guest";
+    if (!unitId) { alert("Vui lòng chọn bài học!"); window.location.href = "UnitSelect.html"; }
+
+    window.onload = async () => {
+        setupDifficulty();
+        document.getElementById("gameTitleDisplay").textContent = `✍️ Unit ${unitId} (${capitalize(diff)})`;
+        try {
+            const res = await fetch(`${API_URL}/round4/${unitId}`);
+            const data = await res.json();
+            if (data.success && data.data && data.data.length > 0) {
+                questions = data.data;
+                document.getElementById("loadingOverlay").classList.add("hidden");
+                startTimer();
+                renderQuestion();
+            } else { alert("Không có dữ liệu!"); }
+        } catch (e) { alert("Lỗi kết nối Server!"); }
+    };
+
+    function setupDifficulty() {
+        if (diff === 'easy') duration = 240; else if (diff === 'hard') duration = 90; else duration = 180; 
+        timeLeft = duration; updateTime();
+    }
+    function capitalize(s) { return s && s[0].toUpperCase() + s.slice(1); }
+    function logout() { if(confirm("Thoát?")) { localStorage.clear(); window.location.href = "login.html"; } }
+    function startTimer() {
+        updateTime();
+        timer = setInterval(() => { timeLeft--; updateTime(); if (timeLeft <= 0) finishGame(); }, 1000);
+    }
+    function updateTime() {
+        const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+        const s = (timeLeft % 60).toString().padStart(2, '0');
+        document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+    }
+
+    function renderQuestion() {
+        const q = questions[currIdx];
+        document.getElementById("questionText").textContent = q.question;
+        document.getElementById("currentQ").textContent = currIdx + 1;
+        
+        // DEBUG: Hiển thị đáp án trong Console
+        console.log(`Câu ${currIdx + 1} đáp án:`, q.correctWord);
+
+        // --- TẠO CÁC Ô TRỐNG (HINT) ---
+        const hintContainer = document.getElementById("hintContainer");
+        hintContainer.innerHTML = "";
+        const correctWord = q.correctWord.trim();
+        
+        for (let char of correctWord) {
+            const box = document.createElement("div");
+            box.className = "char-box";
+            if (char === ' ') box.classList.add("space"); 
+            hintContainer.appendChild(box);
+        }
+
+        const input = document.getElementById("answerInput");
+        input.value = "";
+        input.className = "answer-input"; 
+        input.disabled = false;
+        input.focus();
+        
+        document.getElementById("btnSubmit").textContent = "Kiểm tra";
+        document.getElementById("btnSubmit").disabled = false;
+        document.getElementById("feedbackMsg").textContent = "";
+        isChecking = false;
+    }
+
+    document.getElementById("answerInput").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") { event.preventDefault(); if(!isChecking) checkAnswer(); }
+    });
+
+    function checkAnswer() {
+        const input = document.getElementById("answerInput");
+        const userVal = input.value.trim().toLowerCase();
+        const correctVal = questions[currIdx].correctWord.trim().toLowerCase();
+
+        if(!userVal) { document.getElementById("feedbackMsg").textContent = "Hãy nhập đáp án!"; return; }
+
+        isChecking = true; input.disabled = true; document.getElementById("btnSubmit").disabled = true;
+
+        // HIỂN THỊ KÝ TỰ VÀO Ô TRỐNG
+        const boxes = document.querySelectorAll(".char-box:not(.space)");
+        const letters = userVal.split('');
+        boxes.forEach((box, index) => {
+            if (letters[index]) box.textContent = letters[index].toUpperCase();
+        });
+
+        if (userVal === correctVal) {
+            input.classList.add("correct");
+            currentScore++;
+            document.getElementById("scoreDisplay").textContent = currentScore;
+            setTimeout(nextQuestion, 1000);
+        } else {
+            input.classList.add("wrong");
+            // Điểm không âm
+            currentScore = Math.max(0, currentScore - 1);
+            document.getElementById("scoreDisplay").textContent = currentScore;
+            setTimeout(() => {
+                input.className = "answer-input"; input.value = ""; input.disabled = false; input.focus();
+                document.getElementById("btnSubmit").disabled = false; isChecking = false;
+                boxes.forEach(box => box.textContent = "");
+            }, 1000);
+        }
+    }
+
+    function nextQuestion() {
+        currIdx++;
+        if (currIdx < questions.length) renderQuestion(); else finishGame();
+    }
+
+    async function finishGame() {
+        clearInterval(timer);
+        const timeUsed = duration - timeLeft;
+        document.getElementById("resultOverlay").classList.remove("hidden");
+        document.getElementById("resTitle").textContent = "Đang tổng kết...";
+        document.getElementById("finalStats").style.display = "none";
+        
+        try {
+            const res = await fetch(`${API_URL}/submit-round4`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userId, score: currentScore, timeTaken: timeUsed })
+            });
+            const result = await res.json();
+            showResult(result);
+        } catch (e) {
+            console.error(e);
+            alert("Lỗi kết nối!");
+        }
+    }
+
+    function showResult(res) {
+        const isPass = res.isPassed;
+        const icon = document.getElementById("resIcon");
+        const title = document.getElementById("resTitle");
+        const btns = document.getElementById("resButtons");
+        const stats = document.getElementById("finalStats");
+
+        stats.style.display = "flex";
+        
+        // --- HIỂN THỊ DỮ LIỆU TỪ SERVER ---
+        document.getElementById("r4Score").textContent = `${res.roundScore || 0}/10`;
+        document.getElementById("grandTotalScore").textContent = res.totalScore || 0;
+        
+        const totalTime = res.totalTime || 0;
+        const m = Math.floor(totalTime / 60).toString().padStart(2, '0');
+        const s = (totalTime % 60).toString().padStart(2, '0');
+        document.getElementById("grandTotalTime").textContent = `${m}:${s}`;
+
+        if (isPass) {
+            icon.textContent = "🏆"; title.textContent = "CHÚC MỪNG!"; title.style.color = "#4caf50";
+            btns.innerHTML = `<button class="btn-home btn-rank" onclick="window.location.href='Leaderboard.html'">👑 Bảng Xếp Hạng</button><button class="btn-home btn-success" onclick="window.location.href='menu.html'">Về Menu Chính</button>`;
+        } else {
+            icon.textContent = "😓"; title.textContent = "THẤT BẠI!"; title.style.color = "#d32f2f";
+            btns.innerHTML = `<button class="btn-home btn-retry" onclick="location.reload()">Làm lại</button><button class="btn-home btn-menu" onclick="window.location.href='menu.html'">Thoát</button>`;
+        }
+    }
+</script>
+
+</body>
+</html>

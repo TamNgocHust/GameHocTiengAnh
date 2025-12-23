@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chọn Bài Học - Mushroom Kingdom</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+
+        body {
+            min-height: 100vh;
+            background: url('screen/mushroom.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 20px;
+        }
+
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(3px); z-index: 0; }
+        
+        /* HEADER */
+        .header {
+            position: relative; z-index: 10;
+            background: #fff; padding: 15px 40px; border-radius: 50px;
+            box-shadow: 0 8px 0 #e0e0e0, 0 15px 20px rgba(0,0,0,0.2);
+            margin-bottom: 40px; display: flex; align-items: center; gap: 20px;
+            border: 4px solid #ff8c42;
+        }
+        .header h1 { color: #d84315; font-size: 2rem; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* GRID UNITS */
+        .unit-container {
+            position: relative; z-index: 10;
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); /* 3 cột */
+            gap: 25px;
+            width: 1000px; max-width: 95vw;
+        }
+
+        .unit-card {
+            background: linear-gradient(145deg, #ffffff, #fff3e0);
+            border-radius: 20px; padding: 20px;
+            border: 4px solid #ffb74d;
+            box-shadow: 0 6px 0 #f57c00, 0 10px 15px rgba(0,0,0,0.2);
+            cursor: pointer; transition: all 0.2s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; height: 160px;
+        }
+
+        .unit-card:hover { transform: translateY(-5px); background: #fffde7; border-color: #ffca28; }
+        .unit-card:active { transform: translateY(4px); box-shadow: 0 2px 0 #f57c00; }
+
+        .unit-icon { font-size: 3rem; color: #fb8c00; margin-bottom: 10px; }
+        .unit-number { font-size: 1.2rem; font-weight: 700; color: #5d4037; }
+        .unit-name { font-size: 0.95rem; color: #795548; margin-top: 5px; font-weight: 600; }
+
+        /* Nút Back */
+        .btn-back {
+            position: absolute; top: 20px; left: 20px; z-index: 20;
+            padding: 10px 20px; background: #fff; border-radius: 30px;
+            border: none; font-weight: bold; cursor: pointer; color: #555;
+            box-shadow: 0 4px 0 #ccc; text-decoration: none;
+        }
+        .btn-back:hover { transform: translateY(-2px); }
+
+    </style>
+</head>
+<body>
+
+    <div class="overlay"></div>
+
+    <a href="menu.html" class="btn-back"><i class="fas fa-arrow-left"></i> Quay lại Menu</a>
+
+    <div class="header">
+        <h1><i class="fas fa-map"></i> Bản Đồ Học Tập</h1>
+    </div>
+
+    <div class="unit-container" id="unitGrid">
+        </div>
+
+    <script>
+        // Danh sách Unit chuẩn sách Cánh Diều
+        const units = [
+            { id: 0, name: "Getting Started", icon: "fa-flag-checkered" },
+            { id: 1, name: "Animal Habitats", icon: "fa-paw" },
+            { id: 2, name: "Let's Eat!", icon: "fa-utensils" },
+            { id: 3, name: "On the Move!", icon: "fa-bus" },
+            { id: 4, name: "Our Senses", icon: "fa-eye" },
+            { id: 5, name: "Our Health", icon: "fa-heart-pulse" },
+            { id: 6, name: "World of School", icon: "fa-school" },
+            { id: 7, name: "World of Work", icon: "fa-briefcase" },
+            { id: 8, name: "Holidays & Festivals", icon: "fa-gifts" }
+        ];
+
+        const grid = document.getElementById("unitGrid");
+
+        units.forEach(unit => {
+            const card = document.createElement("div");
+            card.className = "unit-card";
+            card.onclick = () => selectUnit(unit.id, unit.name);
+            
+            card.innerHTML = `
+                <i class="fas ${unit.icon} unit-icon"></i>
+                <div class="unit-number">Unit ${unit.id}</div>
+                <div class="unit-name">${unit.name}</div>
+            `;
+            grid.appendChild(card);
+        });
+
+        function selectUnit(id, name) {
+            // Lưu thông tin Unit đã chọn vào LocalStorage
+            localStorage.setItem("selectedUnitId", id);
+            localStorage.setItem("selectedUnitName", name);
+            
+            // Chuyển sang trang chọn Level
+            window.location.href = "level.html";
+        }
+    </script>
+</body>
+</html>

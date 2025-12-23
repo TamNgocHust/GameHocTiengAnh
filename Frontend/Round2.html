@@ -7,14 +7,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-    /* --- GIỮ NGUYÊN STYLE CƠ BẢN --- */
+    /* --- CSS STYLE --- */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+
     body {
         height: 100vh; width: 100vw; background: #000;
         display: flex; justify-content: center; align-items: center; overflow: hidden;
         background-image: url('screen/mushroom.jpg'); 
         background-size: cover; background-position: center;
     }
+
     .bg-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 0; }
     .overlay-ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
     
@@ -28,11 +30,10 @@
     .username-label { font-weight: 600; color: #553300; }
     .logout-btn { cursor: pointer; padding: 4px 10px; border-radius: 999px; border: none; background: #ff4b3a; color: #fff; font-size: 0.85rem; box-shadow: 0 3px 0 #c53120; text-transform: uppercase; }
     .logout-btn:hover { transform: translateY(-1px); }
-    .logout-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c53120; }
 
     /* Back Button */
     .bottom-left { position: absolute; left: 20px; bottom: 15px; pointer-events: auto; }
-    .btn-back { padding: 7px 16px; border-radius: 999px; border: none; background: #ffffff; color: #553300; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
+    .btn-back { padding: 7px 16px; border-radius: 999px; border: none; background: #ffffff; color: #553300; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); text-decoration: none; font-weight: 600;}
     .btn-back:hover { transform: translateY(-1px); }
 
     /* --- GAME BOARD --- */
@@ -94,20 +95,32 @@
     .btn-check:hover { transform: translateY(-2px); }
     .btn-check:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
 
+    /* OVERLAYS */
     #loadingOverlay, #resultOverlay {
-        position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+        position: absolute; inset: 0; background: rgba(255,255,255,0.98);
         z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
     }
     .hidden { display: none !important; }
 
     .result-box {
-        background: #fff; padding: 30px 50px; border-radius: 20px;
+        background: #fff; padding: 40px 60px; border-radius: 20px;
         border: 4px solid #42a5ff; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        display: flex; flex-direction: column; align-items: center;
     }
-    .result-title { font-size: 2rem; color: #1565c0; margin-bottom: 15px; }
-    .result-score { font-size: 1.5rem; color: #333; margin-bottom: 10px; }
-    .result-time { font-size: 1.2rem; color: #555; margin-bottom: 25px; font-style: italic;}
-    .btn-home { background: #2196f3; color: white; padding: 12px 30px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; }
+    .result-title { font-size: 2.5rem; color: #1565c0; margin-bottom: 15px; font-weight: 800; }
+    .result-score { font-size: 1.8rem; color: #333; margin-bottom: 10px; }
+    .result-time { font-size: 1.2rem; color: #555; margin-bottom: 30px; font-style: italic;}
+    
+    .btn-home { 
+        padding: 12px 35px; border: none; border-radius: 50px; 
+        font-weight: bold; cursor: pointer; font-size: 1.1rem; color: white;
+        transition: transform 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+        margin: 5px;
+    }
+    .btn-home:hover { transform: translateY(-2px); }
+    .btn-primary { background: #4caf50; } /* Màu xanh lá cho nút NEXT */
+    .btn-retry { background: #ff9800; }
+    .btn-secondary { background: #9e9e9e; }
 
     @keyframes shake {
         0%, 100% { transform: translateX(0); }
@@ -126,23 +139,23 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     <div class="bottom-left">
-        <button class="btn-back" onclick="goBack()"><span>←</span> Menu</button>
+        <a href="level.html" class="btn-back"><span>←</span> Trở lại</a>
     </div>
 </div>
 
 <div id="gameWrapper">
     <div class="game-header">
-        <div class="game-title">🌊 Round 2: Trật tự câu</div>
+        <div class="game-title" id="gameTitleDisplay">🌊 Round 2: Trật tự câu</div>
         <div class="game-stats">
             <div class="stat-box">Câu: <span id="questionCount">1</span>/10</div>
             <div class="stat-box">Điểm: <span id="scoreDisplay">0</span></div>
-            <div class="stat-box">Còn lại: <span id="timerDisplay">03:00</span></div>
+            <div class="stat-box">Còn lại: <span id="timerDisplay">--:--</span></div>
         </div>
     </div>
 
     <div id="loadingOverlay">
-        <h2>Đang tải câu hỏi...</h2>
-        <p>Chuẩn bị kiến thức ngữ pháp nhé!</p>
+        <h2 style="color:#1565c0; margin-bottom:10px">Đang tải câu hỏi...</h2>
+        <p>Vui lòng đợi trong giây lát</p>
     </div>
 
     <div class="scramble-area" id="gameArea">
@@ -159,21 +172,23 @@
             <div class="result-title" id="resultTitle">Hoàn thành!</div>
             <div class="result-score" id="resultMsg">Tổng điểm: ...</div>
             <div class="result-time" id="resultTime">Thời gian: ...</div>
-            <button class="btn-home" onclick="goBack()">Về Menu chính</button>
-            <button class="btn-home" onclick="location.reload()" style="background:#ff9800; margin-left:10px">Chơi lại</button>
+            
+            <div id="resultButtons">
+                </div>
         </div>
     </div>
 </div>
 
 <script>
-    // ============ CONFIG ============
-    const API_URL = 'http://localhost:5000/api/game/round2';
+    // ============ CẤU HÌNH API ============
+    const BASE_API_URL = 'http://localhost:5000/api/game/round2'; 
     const SUBMIT_URL = 'http://localhost:5000/api/game/submit-round2';
     
-    // CẤU HÌNH THỜI GIAN: 180 giây (3 phút)
-    const GAME_DURATION = 180; 
+    // BIẾN TRẠNG THÁI
+    let GAME_DURATION = 120;
+    let unitId = null;
+    let difficulty = 'normal';
 
-    // ============ STATE ============
     let sentencesData = [];
     let currentQuestionIndex = 0;
     let currentScore = 0;
@@ -181,126 +196,123 @@
     let userArrangement = [];
     
     let timerInterval;
-    let timeLeft = GAME_DURATION; // Biến đếm ngược
+    let timeLeft = 0;
 
-    // ============ USER CHECK ============
-    const userId = localStorage.getItem("currentUserID");
-    const fullname = localStorage.getItem("fullname");
-    const username = localStorage.getItem("username");
+    // ============ KHỞI TẠO GAME ============
+    window.onload = function() {
+        const userId = localStorage.getItem("currentUserID");
+        const fullname = localStorage.getItem("fullname");
+        const username = localStorage.getItem("username");
+        document.getElementById("showUser").textContent = fullname || username || "Guest";
 
-    if (!userId) {
-        alert("Vui lòng đăng nhập lại!");
-        window.location.href = "login.html";
-    }
-    document.getElementById("showUser").textContent = (fullname && fullname !== "null") ? fullname : username;
+        // Lấy Unit & Diff từ trang trước
+        unitId = localStorage.getItem("gameConfig_UnitId");
+        difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
 
-    function logout() {
-        if(confirm("Thoát game?")) { localStorage.clear(); window.location.href = "login.html"; }
-    }
-    function goBack() { window.location.href = "menu.html"; }
+        if (!unitId) {
+            alert("Vui lòng chọn bài học trước!");
+            window.location.href = "UnitSelect.html";
+            return;
+        }
 
-    // --- HÀM TIMER ĐẾM NGƯỢC ---
-    function startTimer() {
-        timeLeft = GAME_DURATION; // Reset về 180s
+        setupDifficulty(difficulty);
+        document.getElementById("gameTitleDisplay").textContent = `🌊 Unit ${unitId} (${capitalize(difficulty)})`;
+        
+        fetchGameData(unitId);
+    };
+
+    function setupDifficulty(diff) {
+        if (diff === 'easy') GAME_DURATION = 180;
+        else if (diff === 'hard') GAME_DURATION = 60;
+        else GAME_DURATION = 120;
+        
+        timeLeft = GAME_DURATION;
         updateTimerDisplay();
+    }
 
+    function capitalize(s) { return s && s[0].toUpperCase() + s.slice(1); }
+    function logout() { if(confirm("Thoát game?")) { localStorage.clear(); window.location.href = "login.html"; } }
+
+    // ============ API: LẤY CÂU HỎI ============
+    async function fetchGameData(id) {
+        try {
+            const res = await fetch(`${BASE_API_URL}/${id}`);
+            if (!res.ok) throw new Error(`Server Error: ${res.status}`);
+            const data = await res.json();
+
+            if (data.success) {
+                if (!data.data || data.data.length === 0) {
+                    alert("Lỗi: Unit này chưa có câu hỏi!");
+                    return;
+                }
+                sentencesData = data.data; 
+                currentQuestionIndex = 0;
+                currentScore = 0; 
+                document.getElementById("scoreDisplay").textContent = currentScore;
+                
+                document.getElementById("loadingOverlay").classList.add("hidden");
+                startTimer();
+                loadQuestion(currentQuestionIndex);
+            } else {
+                alert("Lỗi server: " + data.message);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Lỗi kết nối! Đảm bảo Backend đang chạy.");
+        }
+    }
+
+    // ============ LOGIC THỜI GIAN ============
+    function startTimer() {
+        updateTimerDisplay();
         clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             timeLeft--;
             updateTimerDisplay();
-
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
-                alert("Hết giờ! Trò chơi kết thúc.");
-                finishGame(); // Hết giờ thì tự động kết thúc
+                alert("Hết giờ!");
+                finishGame();
             }
         }, 1000);
     }
 
     function updateTimerDisplay() {
-        const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-        const s = (timeLeft % 60).toString().padStart(2, '0');
-        document.getElementById("timerDisplay").textContent = `${m}:${s}`;
-        
-        // Hiệu ứng màu đỏ khi sắp hết giờ (< 10s)
-        if (timeLeft < 10) {
-            document.getElementById("timerDisplay").style.color = "red";
-        } else {
-            document.getElementById("timerDisplay").style.color = "#d32f2f";
-        }
+        let t = timeLeft < 0 ? 0 : timeLeft;
+        const m = Math.floor(t / 60).toString().padStart(2, '0');
+        const s = (t % 60).toString().padStart(2, '0');
+        const el = document.getElementById("timerDisplay");
+        el.textContent = `${m}:${s}`;
+        el.style.color = t < 10 ? "red" : "#0d47a1";
+    }
+
+    function formatTimeUsed(seconds) {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
     }
 
     function stopTimer() { clearInterval(timerInterval); }
 
-    // ============ LOGIC CHÍNH ============
-
-    async function initGame() {
-        try {
-            console.log("Fetching data from:", API_URL);
-            const res = await fetch(API_URL);
-            
-            if (!res.ok) {
-                throw new Error(`Server Error: ${res.status} ${res.statusText}`);
-            }
-
-            const data = await res.json();
-            console.log("Data received:", data);
-
-            if (data.success) {
-                if (!data.data || data.data.length === 0) {
-                    alert("Lỗi: Server trả về danh sách câu hỏi rỗng! Hãy kiểm tra Database.");
-                    return;
-                }
-
-                sentencesData = data.data; 
-                currentQuestionIndex = 0;
-                currentScore = 0;
-                
-                document.getElementById("loadingOverlay").classList.add("hidden");
-                
-                // Bắt đầu đếm ngược ngay khi tải xong
-                startTimer();
-                
-                loadQuestion(currentQuestionIndex);
-            } else {
-                alert("Server báo lỗi: " + data.message);
-            }
-        } catch (e) {
-            console.error("CHI TIẾT LỖI:", e);
-            alert("Lỗi kết nối hoặc xử lý dữ liệu!\nChi tiết: " + e.message + "\n(Hãy mở Console F12 để xem kỹ hơn)");
-        }
-    }
-
-    function shuffle(array) {
-        return array.sort(() => Math.random() - 0.5);
-    }
+    // ============ GAMEPLAY LOGIC ============
+    function shuffle(array) { return array.sort(() => Math.random() - 0.5); }
 
     function loadQuestion(index) {
-        if (!sentencesData[index]) {
-            console.error("Không tìm thấy câu hỏi tại index:", index);
-            return;
-        }
-
         const sentenceObj = sentencesData[index];
         const rawContent = sentenceObj.OptionContent || sentenceObj.optionContent;
-
-        if (!rawContent) {
-            alert(`Lỗi dữ liệu câu hỏi số ${index + 1}: Không tìm thấy nội dung câu!`);
-            return;
-        }
+        if (!rawContent) return;
 
         const fullSentence = rawContent.trim();
+        // Bỏ dấu câu cuối để tránh lộ
         const cleanSentence = fullSentence.replace(/[.!?]$/, ''); 
         let words = cleanSentence.split(/\s+/);
         
         sentencesData[index].correctString = cleanSentence;
-
         currentWords = shuffle([...words]); 
         userArrangement = [];
 
         document.getElementById("progressText").textContent = `Câu hỏi ${index + 1} / ${sentencesData.length}`;
         document.getElementById("questionCount").textContent = index + 1;
-
         document.getElementById("answerZone").className = "answer-zone";
         document.getElementById("btnCheck").disabled = false;
         
@@ -310,10 +322,10 @@
     function renderZones() {
         const answerZone = document.getElementById("answerZone");
         const wordBank = document.getElementById("wordBank");
-        
         answerZone.innerHTML = "";
         wordBank.innerHTML = "";
 
+        // Render Vùng Trả Lời
         if (userArrangement.length === 0) {
             const placeholder = document.createElement("span");
             placeholder.textContent = "Chọn từ bên dưới để xếp thành câu...";
@@ -323,14 +335,13 @@
             answerZone.appendChild(placeholder);
         } else {
             userArrangement.forEach((word, idx) => {
-                const chip = createChip(word, () => moveToBank(idx));
-                answerZone.appendChild(chip);
+                answerZone.appendChild(createChip(word, () => moveToBank(idx)));
             });
         }
 
+        // Render Ngân Hàng Từ
         currentWords.forEach((word, idx) => {
-            const chip = createChip(word, () => moveToAnswer(idx));
-            wordBank.appendChild(chip);
+            wordBank.appendChild(createChip(word, () => moveToAnswer(idx)));
         });
     }
 
@@ -356,6 +367,7 @@
         renderZones();
     }
 
+    // ============ LOGIC CHẤM ĐIỂM ============
     function checkAnswer() {
         const btnCheck = document.getElementById("btnCheck");
         const answerZone = document.getElementById("answerZone");
@@ -363,17 +375,26 @@
         const userString = userArrangement.join(" ");
         const correctString = sentencesData[currentQuestionIndex].correctString;
 
-        btnCheck.disabled = true;
-
         if (userString === correctString) {
+            // --- ĐÚNG ---
             answerZone.classList.add("correct");
             currentScore += 1; 
             document.getElementById("scoreDisplay").textContent = currentScore;
             
+            btnCheck.disabled = true;
             setTimeout(() => { nextQuestion(); }, 1000);
         } else {
+            // --- SAI ---
             answerZone.classList.add("wrong");
-            setTimeout(() => { nextQuestion(); }, 1500);
+            
+            // Trừ 1 điểm (nhưng không âm)
+            currentScore = Math.max(0, currentScore - 1);
+            document.getElementById("scoreDisplay").textContent = currentScore;
+
+            // Rung lắc báo sai và cho phép sửa lại
+            setTimeout(() => { 
+                answerZone.classList.remove("wrong"); 
+            }, 800);
         }
     }
 
@@ -386,47 +407,75 @@
         }
     }
 
+    // ============ KẾT THÚC GAME ============
     async function finishGame() {
         stopTimer();
         
-        // Tính thời gian đã dùng = Tổng thời gian (180s) - Thời gian còn lại
         const timeUsed = GAME_DURATION - timeLeft;
-        const m = Math.floor(timeUsed / 60).toString().padStart(2, '0');
-        const s = (timeUsed % 60).toString().padStart(2, '0');
-        const formattedTime = `${m}:${s}`;
+        const formattedTime = formatTimeUsed(timeUsed);
+        const userId = localStorage.getItem("currentUserID");
 
         const title = document.getElementById("resultTitle");
         const msg = document.getElementById("resultMsg");
         const timeMsg = document.getElementById("resultTime");
+        const btnContainer = document.getElementById("resultButtons");
 
+        // Logic Pass/Fail
         const isPassed = currentScore >= 5;
-        title.textContent = isPassed ? "🎉 HOÀN THÀNH!" : "😢 CỐ GẮNG HƠN!";
-        title.style.color = isPassed ? "#1565c0" : "#d32f2f";
         
-        // --- CHỈNH SỬA: Chỉ hiện Điểm và Thời gian (Bỏ Sao) ---
+        title.textContent = isPassed ? "🎉 HOÀN THÀNH!" : "😢 RẤT TIẾC!";
+        title.style.color = isPassed ? "#4caf50" : "#f44336";
         msg.textContent = `Tổng điểm: ${currentScore}/10`;
         timeMsg.textContent = `Thời gian hoàn thành: ${formattedTime}`;
 
+        // Xóa nút cũ, tạo nút mới
+        btnContainer.innerHTML = ""; 
+
+        if (isPassed) {
+            // ĐẬU: Nút Qua Round 3
+            const btnNext = document.createElement("button");
+            btnNext.className = "btn-home btn-primary";
+            btnNext.textContent = "Qua Round 3";
+            btnNext.onclick = () => {
+                localStorage.setItem("gameConfig_Round", 3);
+                window.location.href = "round3.html"; // Giả định có file này
+            };
+            btnContainer.appendChild(btnNext);
+        } else {
+            // RỚT: Nút Thử lại
+            const btnRetry = document.createElement("button");
+            btnRetry.className = "btn-home btn-retry";
+            btnRetry.textContent = "Thử lại ngay";
+            btnRetry.onclick = () => location.reload();
+            btnContainer.appendChild(btnRetry);
+
+            // Nút Thoát
+            const btnExit = document.createElement("button");
+            btnExit.className = "btn-home btn-secondary";
+            btnExit.textContent = "Về Menu";
+            btnExit.onclick = () => window.location.href = "menu.html";
+            btnContainer.appendChild(btnExit);
+        }
+
         document.getElementById("resultOverlay").classList.remove("hidden");
 
+        // Lưu điểm vào DB
         try {
-            // Gửi dữ liệu về Server (Đã bỏ cột stars)
             await fetch(SUBMIT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     studentId: userId,
+                    userId: userId,
                     score: currentScore,
-                    timeTaken: timeUsed // Gửi thời gian thực tế đã chơi
+                    timeTaken: timeUsed 
                 })
             });
-            console.log("Đã lưu kết quả Round 2.");
+            console.log("Đã lưu kết quả.");
         } catch (e) {
             console.error("Lỗi lưu điểm:", e);
         }
     }
-
-    window.onload = initGame;
 </script>
 
 </body>

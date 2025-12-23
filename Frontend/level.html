@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chọn Cấp Độ - Mushroom Kingdom</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
+
+        body {
+            min-height: 100vh;
+            background: url('screen/mushroom.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 0; }
+
+        /* CONTAINER CHÍNH */
+        .level-wrapper {
+            position: relative; z-index: 10;
+            background: #fff;
+            width: 1000px; /* Tăng chiều rộng một chút để chứa 4 round đẹp hơn */
+            max-width: 95vw;
+            border-radius: 25px; padding: 40px;
+            border: 5px solid #ff8c42;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .level-title {
+            font-size: 2rem; color: #d84315; margin-bottom: 5px; text-transform: uppercase;
+        }
+        .unit-subtitle {
+            font-size: 1.2rem; color: #555; margin-bottom: 30px; font-weight: 600;
+        }
+
+        /* KHU VỰC CHỌN ROUND */
+        .round-selection {
+            display: flex; 
+            gap: 20px; 
+            justify-content: center; 
+            margin-bottom: 30px;
+            flex-wrap: wrap; /* Cho phép xuống dòng trên màn hình nhỏ */
+        }
+
+        .round-card {
+            flex: 1; 
+            min-width: 180px; /* Đảm bảo ô không bị quá nhỏ */
+            padding: 20px; 
+            border-radius: 20px;
+            background: #f5f5f5; border: 3px solid #ddd;
+            cursor: pointer; transition: all 0.3s;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+
+        .round-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .round-card.active {
+            background: #e3f2fd; border-color: #2196f3;
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
+        }
+
+        .round-icon { font-size: 3rem; color: #757575; }
+        .round-card.active .round-icon { color: #2196f3; }
+        .round-name { font-size: 1.2rem; font-weight: bold; color: #333; }
+        .round-desc { font-size: 0.85rem; color: #666; }
+
+        /* KHU VỰC CHỌN ĐỘ KHÓ */
+        .difficulty-options {
+            display: flex; gap: 15px; justify-content: center; margin-bottom: 40px;
+        }
+
+        .diff-btn {
+            padding: 10px 25px; border-radius: 50px; border: 2px solid #ddd;
+            background: #fff; font-weight: bold; color: #555; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .diff-btn:hover { background: #eee; }
+        
+        .diff-btn.active[data-level="easy"] { background: #4caf50; color: white; border-color: #2e7d32; }
+        .diff-btn.active[data-level="normal"] { background: #ff9800; color: white; border-color: #ef6c00; }
+        .diff-btn.active[data-level="hard"] { background: #f44336; color: white; border-color: #c62828; }
+
+        /* NÚT PLAY */
+        .btn-play {
+            padding: 15px 60px; font-size: 1.5rem; font-weight: bold; color: white;
+            background: linear-gradient(to bottom, #43a047, #2e7d32);
+            border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 6px 0 #1b5e20, 0 10px 20px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .btn-play:active { transform: translateY(4px); box-shadow: 0 2px 0 #1b5e20; }
+        
+        .btn-back-corner {
+            position: absolute; top: 20px; left: 20px;
+            background: #fff; padding: 8px 15px; border-radius: 20px;
+            text-decoration: none; font-weight: bold; color: #555;
+            box-shadow: 0 3px 0 #ccc; z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay"></div>
+    <a href="UnitSelect.html" class="btn-back-corner"><i class="fas fa-arrow-left"></i> Chọn Unit khác</a>
+
+    <div class="level-wrapper">
+        <h1 class="level-title">Cấu Hình Trò Chơi</h1>
+        <div class="unit-subtitle" id="selectedUnitDisplay">Đang chọn: Unit ...</div>
+
+        <div class="round-selection">
+            <div class="round-card active" onclick="selectRound(1, this)">
+                <i class="fas fa-puzzle-piece round-icon"></i>
+                <div class="round-name">Round 1</div>
+                <div class="round-desc">Nối từ vựng</div>
+            </div>
+            
+            <div class="round-card" onclick="selectRound(2, this)">
+                <i class="fas fa-sort-alpha-down round-icon"></i>
+                <div class="round-name">Round 2</div>
+                <div class="round-desc">Sắp xếp câu</div>
+            </div>
+
+            <div class="round-card" onclick="selectRound(3, this)">
+                <i class="fas fa-check-square round-icon"></i>
+                <div class="round-name">Round 3</div>
+                <div class="round-desc">Trắc nghiệm</div>
+            </div>
+
+            <div class="round-card" onclick="selectRound(4, this)">
+                <i class="fas fa-keyboard round-icon"></i>
+                <div class="round-name">Round 4</div>
+                <div class="round-desc">Điền từ</div>
+            </div>
+        </div>
+
+        <h3>Chọn Độ Khó</h3>
+        <div class="difficulty-options">
+            <div class="diff-btn" data-level="easy" onclick="selectDiff('easy', this)">Dễ (Easy)</div>
+            <div class="diff-btn active" data-level="normal" onclick="selectDiff('normal', this)">Thường (Normal)</div>
+            <div class="diff-btn" data-level="hard" onclick="selectDiff('hard', this)">Khó (Hard)</div>
+        </div>
+
+        <button class="btn-play" onclick="startGame()">BẮT ĐẦU <i class="fas fa-play"></i></button>
+    </div>
+
+    <script>
+        // Lấy thông tin Unit từ trang trước
+        const unitId = localStorage.getItem("selectedUnitId");
+        const unitName = localStorage.getItem("selectedUnitName");
+
+        // Kiểm tra nếu chưa chọn Unit thì đá về
+        if (unitId === null) {
+            alert("Vui lòng chọn bài học trước!");
+            window.location.href = "UnitSelect.html";
+        }
+
+        document.getElementById("selectedUnitDisplay").textContent = `Đang chọn: Unit ${unitId} - ${unitName}`;
+
+        // Mặc định
+        let selectedRound = 1;
+        let selectedDiff = 'normal';
+
+        function selectRound(round, element) {
+            selectedRound = round;
+            // Xử lý UI active
+            document.querySelectorAll('.round-card').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function selectDiff(diff, element) {
+            selectedDiff = diff;
+            // Xử lý UI active
+            document.querySelectorAll('.diff-btn').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function startGame() {
+            // Lưu cấu hình vào LocalStorage để trang Game đọc được
+            localStorage.setItem("gameConfig_Round", selectedRound);
+            localStorage.setItem("gameConfig_Diff", selectedDiff); // easy/normal/hard
+            localStorage.setItem("gameConfig_UnitId", unitId);
+
+            // Chuyển hướng dựa trên Round đã chọn
+            // Lưu ý: Tên file phải khớp chính xác với thư mục của bạn (Round1.html vs round1.html)
+            // Dựa vào ảnh bạn gửi trước đó, tên file viết hoa chữ cái đầu.
+            switch (selectedRound) {
+                case 1:
+                    window.location.href = "Round1.html"; // Nối từ
+                    break;
+                case 2:
+                    window.location.href = "Round2.html"; // Sắp xếp
+                    break;
+                case 3:
+                    window.location.href = "Round3.html"; // Trắc nghiệm
+                    break;
+                case 4:
+                    window.location.href = "Round4.html"; // Điền từ
+                    break;
+                default:
+                    alert("Lỗi: Không tìm thấy vòng chơi này!");
+            }
+        }
+    </script>
+
+</body>
+</html>
