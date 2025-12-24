@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-    /* --- CSS STYLE --- */
+    /* --- CSS STYLE GIỮ NGUYÊN --- */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
 
     body {
@@ -139,7 +139,7 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     <div class="bottom-left">
-        <a href="level.html" class="btn-back"><span>←</span> Trở lại</a>
+        <a href="UnitSelect.html" class="btn-back"><span>←</span> Trở lại</a>
     </div>
 </div>
 
@@ -187,6 +187,7 @@
     // BIẾN TRẠNG THÁI
     let GAME_DURATION = 120;
     let unitId = null;
+    let selectedGrade = 5; // Mặc định lớp 5
     let difficulty = 'normal';
 
     let sentencesData = [];
@@ -205,9 +206,10 @@
         const username = localStorage.getItem("username");
         document.getElementById("showUser").textContent = fullname || username || "Guest";
 
-        // Lấy Unit & Diff từ trang trước
-        unitId = localStorage.getItem("gameConfig_UnitId");
+        // Lấy Unit & Diff & Grade từ trang trước
+        unitId = localStorage.getItem("currentUnitId"); // Lưu ý: UnitSelect.html lưu key là currentUnitId
         difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
+        selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
 
         if (!unitId) {
             alert("Vui lòng chọn bài học trước!");
@@ -216,7 +218,7 @@
         }
 
         setupDifficulty(difficulty);
-        document.getElementById("gameTitleDisplay").textContent = `🌊 Unit ${unitId} (${capitalize(difficulty)})`;
+        document.getElementById("gameTitleDisplay").textContent = `🌊 Lớp ${selectedGrade} - Unit ${unitId} (${capitalize(difficulty)})`;
         
         fetchGameData(unitId);
     };
@@ -236,13 +238,15 @@
     // ============ API: LẤY CÂU HỎI ============
     async function fetchGameData(id) {
         try {
-            const res = await fetch(`${BASE_API_URL}/${id}`);
+            // GỬI KÈM PARAM GRADE LÊN SERVER
+            const res = await fetch(`${BASE_API_URL}/${id}?grade=${selectedGrade}`);
             if (!res.ok) throw new Error(`Server Error: ${res.status}`);
             const data = await res.json();
 
             if (data.success) {
                 if (!data.data || data.data.length === 0) {
                     alert("Lỗi: Unit này chưa có câu hỏi!");
+                    window.location.href = "UnitSelect.html";
                     return;
                 }
                 sentencesData = data.data; 
@@ -438,7 +442,7 @@
             btnNext.textContent = "Qua Round 3";
             btnNext.onclick = () => {
                 localStorage.setItem("gameConfig_Round", 3);
-                window.location.href = "round3.html"; // Giả định có file này
+                window.location.href = "round3.html"; 
             };
             btnContainer.appendChild(btnNext);
         } else {
@@ -465,10 +469,10 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    studentId: userId,
                     userId: userId,
                     score: currentScore,
-                    timeTaken: timeUsed 
+                    timeTaken: timeUsed,
+                    difficulty: difficulty // <--- Quan trọng: Gửi độ khó
                 })
             });
             console.log("Đã lưu kết quả.");

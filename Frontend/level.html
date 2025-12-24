@@ -148,63 +148,57 @@
     </div>
 
     <script>
-        // Lấy thông tin Unit từ trang trước
-        const unitId = localStorage.getItem("selectedUnitId");
-        const unitName = localStorage.getItem("selectedUnitName");
+    // 1. Lấy thông tin Unit từ LocalStorage (SỬA KEY CHO KHỚP VỚI UnitSelect.html)
+    const unitId = localStorage.getItem("currentUnitId"); 
+    
+    // (Tùy chọn) Nếu bạn muốn hiển thị tên Unit, bạn cần sửa UnitSelect để lưu thêm tên.
+    // Tạm thời hiển thị ID thôi.
+    
+    // Kiểm tra nếu chưa chọn Unit thì đá về
+    if (!unitId) {
+        alert("Vui lòng chọn bài học trước!");
+        window.location.href = "UnitSelect.html";
+    } else {
+        document.getElementById("selectedUnitDisplay").textContent = `Đang chọn: Unit ${unitId}`;
+    }
 
-        // Kiểm tra nếu chưa chọn Unit thì đá về
-        if (unitId === null) {
-            alert("Vui lòng chọn bài học trước!");
-            window.location.href = "UnitSelect.html";
+    // Mặc định
+    let selectedRound = 1;
+    let selectedDiff = 'normal';
+
+    function selectRound(round, element) {
+        selectedRound = round;
+        // Xử lý UI active
+        document.querySelectorAll('.round-card').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+    }
+
+    function selectDiff(diff, element) {
+        selectedDiff = diff;
+        // Xử lý UI active
+        document.querySelectorAll('.diff-btn').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+    }
+
+    function startGame() {
+        // Lưu cấu hình vào LocalStorage để các Round sau đọc được
+        localStorage.setItem("gameConfig_Round", selectedRound);
+        localStorage.setItem("gameConfig_Diff", selectedDiff); // easy/normal/hard
+        
+        // Không cần lưu lại unitId vì nó vẫn nằm trong 'currentUnitId' rồi, 
+        // nhưng lưu thêm vào 'gameConfig_UnitId' nếu code cũ của bạn dùng nó.
+        localStorage.setItem("gameConfig_UnitId", unitId); 
+
+        // Chuyển hướng
+        switch (selectedRound) {
+            case 1: window.location.href = "Round1.html"; break;
+            case 2: window.location.href = "Round2.html"; break;
+            case 3: window.location.href = "Round3.html"; break;
+            case 4: window.location.href = "Round4.html"; break;
+            default: alert("Lỗi: Không tìm thấy vòng chơi này!");
         }
-
-        document.getElementById("selectedUnitDisplay").textContent = `Đang chọn: Unit ${unitId} - ${unitName}`;
-
-        // Mặc định
-        let selectedRound = 1;
-        let selectedDiff = 'normal';
-
-        function selectRound(round, element) {
-            selectedRound = round;
-            // Xử lý UI active
-            document.querySelectorAll('.round-card').forEach(el => el.classList.remove('active'));
-            element.classList.add('active');
-        }
-
-        function selectDiff(diff, element) {
-            selectedDiff = diff;
-            // Xử lý UI active
-            document.querySelectorAll('.diff-btn').forEach(el => el.classList.remove('active'));
-            element.classList.add('active');
-        }
-
-        function startGame() {
-            // Lưu cấu hình vào LocalStorage để trang Game đọc được
-            localStorage.setItem("gameConfig_Round", selectedRound);
-            localStorage.setItem("gameConfig_Diff", selectedDiff); // easy/normal/hard
-            localStorage.setItem("gameConfig_UnitId", unitId);
-
-            // Chuyển hướng dựa trên Round đã chọn
-            // Lưu ý: Tên file phải khớp chính xác với thư mục của bạn (Round1.html vs round1.html)
-            // Dựa vào ảnh bạn gửi trước đó, tên file viết hoa chữ cái đầu.
-            switch (selectedRound) {
-                case 1:
-                    window.location.href = "Round1.html"; // Nối từ
-                    break;
-                case 2:
-                    window.location.href = "Round2.html"; // Sắp xếp
-                    break;
-                case 3:
-                    window.location.href = "Round3.html"; // Trắc nghiệm
-                    break;
-                case 4:
-                    window.location.href = "Round4.html"; // Điền từ
-                    break;
-                default:
-                    alert("Lỗi: Không tìm thấy vòng chơi này!");
-            }
-        }
-    </script>
+    }
+</script>
 
 </body>
 </html>

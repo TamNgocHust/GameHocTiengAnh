@@ -3,6 +3,9 @@ const express = require('express');
 const router = express.Router();
 const gameController = require('../controllers/gameController'); // Đảm bảo đường dẫn trỏ đúng file controller của bạn
 
+// API lấy danh sách bài học theo khối lớp (VD: /api/game/units?grade=5)
+router.get('/units', gameController.getUnitsByGrade);
+
 // --- ROUND 1: Nối từ ---
 router.get('/round1/:unitId', gameController.getRound1Data);
 router.post('/submit-round1', gameController.submitRound1);

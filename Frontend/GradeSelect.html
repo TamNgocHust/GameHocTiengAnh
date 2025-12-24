@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chọn Khối Lớp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    /* --- GIỮ NGUYÊN CSS CŨ --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", sans-serif; }
+
+    body {
+      height: 100vh;
+      background: url('screen/phongnen.jpg') no-repeat center center fixed;
+      background-size: cover;
+      display: flex; justify-content: center; align-items: center;
+      overflow: hidden;
+    }
+
+    .overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(4px); }
+
+    .container {
+      position: relative; z-index: 10;
+      text-align: center;
+      animation: popIn 0.5s ease-out;
+    }
+
+    .title {
+      font-size: 3rem; color: #fff; font-weight: 800;
+      text-transform: uppercase; margin-bottom: 40px;
+      text-shadow: 4px 4px 0 #d84315, 0 0 20px rgba(255, 193, 7, 0.8);
+      letter-spacing: 2px;
+    }
+
+    .grid-grades {
+      display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+      max-width: 900px;
+    }
+
+    .grade-btn {
+      width: 160px; height: 160px;
+      border-radius: 25px; border: none; cursor: pointer;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
+      box-shadow: 0 10px 0 #cfd8dc, 0 20px 20px rgba(0,0,0,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none; color: #333; position: relative; overflow: hidden;
+    }
+
+    .grade-btn:hover { transform: translateY(-5px); box-shadow: 0 15px 0 #b0bec5, 0 25px 30px rgba(0,0,0,0.3); }
+    .grade-btn:active { transform: translateY(5px); box-shadow: 0 5px 0 #b0bec5; }
+
+    .num { font-size: 4rem; font-weight: 800; line-height: 1; margin-bottom: 5px; background: -webkit-linear-gradient(#ff9800, #f57c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .label { font-size: 1.2rem; font-weight: 700; color: #546e7a; text-transform: uppercase; }
+
+    /* Màu sắc riêng */
+    .g1 .num { background: -webkit-linear-gradient(#ef5350, #c62828); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .g2 .num { background: -webkit-linear-gradient(#ffa726, #ef6c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .g3 .num { background: -webkit-linear-gradient(#ffee58, #fdd835); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 2px 0 rgba(0,0,0,0.1); }
+    .g4 .num { background: -webkit-linear-gradient(#66bb6a, #2e7d32); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .g5 .num { background: -webkit-linear-gradient(#42a5f5, #1565c0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .btn-back {
+      margin-top: 40px; padding: 12px 30px;
+      border-radius: 50px; border: none; font-weight: 700; font-size: 1.1rem;
+      background: #fff; color: #555; cursor: pointer;
+      box-shadow: 0 5px 0 #ccc; transition: 0.2s;
+    }
+    .btn-back:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #bbb; color: #333; }
+    .btn-back:active { transform: translateY(2px); box-shadow: 0 2px 0 #bbb; }
+
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+  <div class="overlay"></div>
+
+  <div class="container">
+    <div class="title">Chọn Khối Lớp</div>
+
+    <div class="grid-grades">
+      <button class="grade-btn g1" onclick="selectGrade(1)">
+        <div class="num">1</div><div class="label">Lớp 1</div>
+      </button>
+
+      <button class="grade-btn g2" onclick="selectGrade(2)">
+        <div class="num">2</div><div class="label">Lớp 2</div>
+      </button>
+
+      <button class="grade-btn g3" onclick="selectGrade(3)">
+        <div class="num">3</div><div class="label">Lớp 3</div>
+      </button>
+
+      <button class="grade-btn g4" onclick="selectGrade(4)">
+        <div class="num">4</div><div class="label">Lớp 4</div>
+      </button>
+
+      <button class="grade-btn g5" onclick="selectGrade(5)">
+        <div class="num">5</div><div class="label">Lớp 5</div>
+      </button>
+    </div>
+
+    <button class="btn-back" onclick="window.location.href='menu.html'">← Quay lại Menu</button>
+  </div>
+
+  <script>
+    function selectGrade(grade) {
+      // 1. Lưu lựa chọn vào bộ nhớ
+      localStorage.setItem('selectedGrade', grade);
+      
+      // 2. Chuyển hướng sang trang chọn Unit (ĐÚNG YÊU CẦU CỦA BẠN)
+      window.location.href = 'UnitSelect.html'; 
+    }
+  </script>
+
+</body>
+</html>

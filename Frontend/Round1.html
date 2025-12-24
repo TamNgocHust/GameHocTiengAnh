@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
+    /* --- CSS GIỮ NGUYÊN NHƯ CŨ --- */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
 
     body {
@@ -157,7 +158,7 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     <div class="bottom-left">
-        <a href="level.html" class="btn-back"><span>←</span> Trở lại</a>
+        <a href="UnitSelect.html" class="btn-back"><span>←</span> Trở lại</a>
     </div>
 </div>
 
@@ -204,6 +205,7 @@
     // BIẾN TRẠNG THÁI
     let GAME_DURATION = 120; // Mặc định Normal
     let unitId = null;
+    let selectedGrade = 5; // Mặc định lớp 5
     let difficulty = 'normal';
 
     let leftSelected = null;
@@ -227,9 +229,10 @@
             // alert("Bạn chưa đăng nhập!");
         }
 
-        // 2. Lấy Cấu hình Game từ LocalStorage (Được set ở level.html)
-        unitId = localStorage.getItem("gameConfig_UnitId");
+        // 2. Lấy Cấu hình Game từ LocalStorage
+        unitId = localStorage.getItem("currentUnitId"); // Lưu ý: UnitSelect.html lưu key là currentUnitId
         difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
+        selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
 
         // Nếu không có Unit ID (do vào thẳng link), đá về trang chọn Unit
         if (!unitId) {
@@ -241,10 +244,10 @@
         // 3. Cài đặt độ khó (Thời gian)
         setupDifficulty(difficulty);
 
-        // 4. Hiển thị tiêu đề
-        document.getElementById("gameTitleDisplay").textContent = `🍄 Unit ${unitId} (${capitalize(difficulty)})`;
+        // 4. Hiển thị tiêu đề (Kèm lớp)
+        document.getElementById("gameTitleDisplay").textContent = `🍄 Lớp ${selectedGrade} - Unit ${unitId} (${capitalize(difficulty)})`;
 
-        // 5. Tải dữ liệu Game
+        // 5. Tải dữ liệu Game (Kèm lớp)
         fetchGameData(unitId);
     };
 
@@ -269,7 +272,8 @@
     // ============ LOGIC API ============
     async function fetchGameData(id) {
         try {
-            const response = await fetch(`${BASE_API_URL}/${id}`);
+            // GỬI KÈM PARAM GRADE LÊN SERVER
+            const response = await fetch(`${BASE_API_URL}/${id}?grade=${selectedGrade}`);
             const data = await response.json();
 
             if(data.success) {
@@ -281,6 +285,8 @@
                 startTimer();
             } else {
                 alert("Lỗi: " + data.message);
+                // Có thể quay về trang chọn bài
+                window.location.href = 'UnitSelect.html';
             }
         } catch (error) {
             console.error("Error:", error);
@@ -304,7 +310,6 @@
     }
 
     function updateTimerDisplay() {
-        // Tránh số âm
         let t = timeLeft < 0 ? 0 : timeLeft;
         const m = Math.floor(t / 60).toString().padStart(2,'0');
         const s = (t % 60).toString().padStart(2,'0');
@@ -323,6 +328,10 @@
     function renderBoard(gameData) {
         const colLeft = document.getElementById("colLeft");
         const colRight = document.getElementById("colRight");
+
+        // Xóa nội dung cũ (trừ header)
+        while (colLeft.children.length > 1) colLeft.removeChild(colLeft.lastChild);
+        while (colRight.children.length > 1) colRight.removeChild(colRight.lastChild);
 
         gameData.leftColumn.forEach(item => {
             colLeft.appendChild(createCard(item, "left"));
@@ -419,7 +428,14 @@
         const userId = localStorage.getItem("currentUserID");
 
         try {
-            const payload = { userId, answers: userAnswers, timeTaken: timeUsed };
+            // GỬI KÈM DIFFICULTY
+            const payload = { 
+                userId, 
+                answers: userAnswers, 
+                timeTaken: timeUsed,
+                difficulty: difficulty // <--- Quan trọng
+            };
+            
             const res = await fetch(SUBMIT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -465,8 +481,7 @@
     }
 
     function goToRound2() {
-        // Chuyển sang Round 2 (Cũng sẽ dùng config từ LocalStorage)
-        localStorage.setItem("gameConfig_Round", 2);
+        // Chuyển sang Round 2
         window.location.href = "round2.html";
     }
 </script>

@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
-    /* CSS STYLE */
+    /* CSS STYLE (GIỮ NGUYÊN) */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
     body { height: 100vh; width: 100vw; background: #000; display: flex; justify-content: center; align-items: center; background-image: url('screen/mushroom.jpg'); background-size: cover; overflow: hidden; }
     .bg-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 0; }
@@ -77,7 +77,7 @@
 <div class="bg-overlay"></div>
 <div class="overlay-ui">
     <div class="top-right"><span class="username-label" id="showUser">User</span><button class="logout-btn" onclick="logout()">Logout</button></div>
-    <div class="bottom-left"><button class="btn-back" onclick="window.location.href='level.html'">← Quay lại</button></div>
+    <div class="bottom-left"><button class="btn-back" onclick="window.location.href='UnitSelect.html'">← Quay lại</button></div>
 </div>
 
 <div id="gameWrapper">
@@ -125,29 +125,44 @@
 
 <script>
     const API_URL = 'http://localhost:5000/api/game'; 
-    let unitId = localStorage.getItem("gameConfig_UnitId");
+    
+    // BIẾN CẤU HÌNH
+    let unitId = localStorage.getItem("currentUnitId"); // Key mới: currentUnitId
     let diff = localStorage.getItem("gameConfig_Diff") || 'normal';
+    let selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
+
     let duration = diff === 'easy' ? 240 : (diff === 'hard' ? 90 : 180);
 
     let questions = [], currIdx = 0, currentScore = 0, timer, timeLeft = duration, isChecking = false;
     const userId = localStorage.getItem("currentUserID");
     
     document.getElementById("showUser").textContent = localStorage.getItem("fullname") || "Guest";
-    if (!unitId) { alert("Vui lòng chọn bài học!"); window.location.href = "UnitSelect.html"; }
+    
+    if (!unitId) { 
+        alert("Vui lòng chọn bài học!"); 
+        window.location.href = "UnitSelect.html"; 
+    }
 
     window.onload = async () => {
         setupDifficulty();
-        document.getElementById("gameTitleDisplay").textContent = `✍️ Unit ${unitId} (${capitalize(diff)})`;
+        document.getElementById("gameTitleDisplay").textContent = `✍️ Lớp ${selectedGrade} - Unit ${unitId} (${capitalize(diff)})`;
+        
         try {
-            const res = await fetch(`${API_URL}/round4/${unitId}`);
+            // GỬI KÈM PARAM GRADE LÊN SERVER
+            const res = await fetch(`${API_URL}/round4/${unitId}?grade=${selectedGrade}`);
             const data = await res.json();
+            
             if (data.success && data.data && data.data.length > 0) {
                 questions = data.data;
                 document.getElementById("loadingOverlay").classList.add("hidden");
                 startTimer();
                 renderQuestion();
-            } else { alert("Không có dữ liệu!"); }
-        } catch (e) { alert("Lỗi kết nối Server!"); }
+            } else { 
+                alert("Không có dữ liệu!"); 
+            }
+        } catch (e) { 
+            alert("Lỗi kết nối Server!"); 
+        }
     };
 
     function setupDifficulty() {
@@ -249,10 +264,16 @@
         document.getElementById("finalStats").style.display = "none";
         
         try {
+            // GỬI KÈM DIFFICULTY
             const res = await fetch(`${API_URL}/submit-round4`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: userId, score: currentScore, timeTaken: timeUsed })
+                body: JSON.stringify({ 
+                    userId: userId, 
+                    score: currentScore, 
+                    timeTaken: timeUsed,
+                    difficulty: diff // <--- Quan trọng
+                })
             });
             const result = await res.json();
             showResult(result);

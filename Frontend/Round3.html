@@ -135,7 +135,7 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
     </div>
     <div class="bottom-left">
-        <a href="level.html" class="btn-back"><span>←</span> Trở lại</a>
+        <a href="UnitSelect.html" class="btn-back"><span>←</span> Trở lại</a>
     </div>
 </div>
 
@@ -179,6 +179,7 @@
     // BIẾN TRẠNG THÁI
     let GAME_DURATION = 120;
     let unitId = null;
+    let selectedGrade = 5; // Mặc định lớp 5
     let difficulty = 'normal';
 
     let questionsData = [];
@@ -197,8 +198,10 @@
         const fullname = localStorage.getItem("fullname");
         document.getElementById("showUser").textContent = fullname || "Guest";
 
-        unitId = localStorage.getItem("gameConfig_UnitId");
+        // Lấy Unit, Difficulty, Grade từ trang trước
+        unitId = localStorage.getItem("currentUnitId"); // Lưu ý key: currentUnitId
         difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
+        selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
 
         if (!unitId) {
             alert("Vui lòng chọn bài học trước!");
@@ -207,7 +210,7 @@
         }
 
         setupDifficulty(difficulty);
-        document.getElementById("gameTitleDisplay").textContent = `🔮 Unit ${unitId} (${capitalize(difficulty)})`;
+        document.getElementById("gameTitleDisplay").textContent = `🔮 Lớp ${selectedGrade} - Unit ${unitId} (${capitalize(difficulty)})`;
         
         fetchGameData(unitId);
     };
@@ -227,7 +230,8 @@
     // ============ API: LẤY CÂU HỎI ============
     async function fetchGameData(id) {
         try {
-            const res = await fetch(`${API_URL}/round3/${id}`);
+            // GỬI KÈM PARAM GRADE LÊN SERVER
+            const res = await fetch(`${API_URL}/round3/${id}?grade=${selectedGrade}`);
             if (!res.ok) throw new Error(`Lỗi Server: ${res.status}`);
             
             const data = await res.json();
@@ -299,7 +303,7 @@
     function handleAnswer(btnElement, optionData, questionData) {
         if (isAnswering) return; 
         
-        // 1. LƯU LẠI ĐÁP ÁN ĐỂ GỬI VỀ SERVER (QUAN TRỌNG)
+        // 1. LƯU LẠI ĐÁP ÁN ĐỂ GỬI VỀ SERVER
         userAnswers.push({
             questionId: questionData.id,
             selectedOptionId: optionData.id
@@ -345,6 +349,7 @@
         const timeUsed = GAME_DURATION - timeLeft;
         const m = Math.floor(timeUsed/60).toString().padStart(2,'0');
         const s = (timeUsed%60).toString().padStart(2,'0');
+        const userId = localStorage.getItem("currentUserID");
         
         // Hiển thị kết quả
         const overlay = document.getElementById("resultOverlay");
@@ -386,20 +391,19 @@
             btnContainer.appendChild(btnExit);
         }
 
-        // Gửi kết quả về Server (ĐÃ SỬA: Gửi kèm 'answers')
+        // Gửi kết quả về Server (KÈM DIFFICULTY)
         try {
-            const userId = localStorage.getItem("currentUserID");
-            
-            console.log("Đang gửi kết quả:", { userId, answers: userAnswers }); // Debug
+            console.log("Đang gửi kết quả:", { userId, answers: userAnswers, difficulty }); 
 
             await fetch(`${API_URL}/submit-round3`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: userId,
-                    score: currentScore, // Gửi điểm tham khảo
+                    score: currentScore, 
                     timeTaken: timeUsed,
-                    answers: userAnswers // <--- ĐÂY LÀ PHẦN QUAN TRỌNG ĐÃ THÊM
+                    answers: userAnswers,
+                    difficulty: difficulty // <--- Quan trọng: Gửi độ khó
                 })
             });
         } catch (e) {
