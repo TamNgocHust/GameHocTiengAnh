@@ -391,9 +391,9 @@
             btnContainer.appendChild(btnExit);
         }
 
-        // Gửi kết quả về Server (KÈM DIFFICULTY)
+        // Gửi kết quả về Server (KÈM DIFFICULTY VÀ UNIT ID)
         try {
-            console.log("Đang gửi kết quả:", { userId, answers: userAnswers, difficulty }); 
+            console.log("Đang gửi kết quả:", { userId, answers: userAnswers, difficulty, unitId }); 
 
             await fetch(`${API_URL}/submit-round3`, {
                 method: 'POST',
@@ -403,7 +403,8 @@
                     score: currentScore, 
                     timeTaken: timeUsed,
                     answers: userAnswers,
-                    difficulty: difficulty // <--- Quan trọng: Gửi độ khó
+                    difficulty: difficulty,
+                    unitId: unitId // <--- Quan trọng: Gửi Unit ID
                 })
             });
         } catch (e) {

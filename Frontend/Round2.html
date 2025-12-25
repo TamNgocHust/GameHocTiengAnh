@@ -207,7 +207,7 @@
         document.getElementById("showUser").textContent = fullname || username || "Guest";
 
         // Lấy Unit & Diff & Grade từ trang trước
-        unitId = localStorage.getItem("currentUnitId"); // Lưu ý: UnitSelect.html lưu key là currentUnitId
+        unitId = localStorage.getItem("currentUnitId"); // Key: currentUnitId
         difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
         selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
 
@@ -463,8 +463,10 @@
 
         document.getElementById("resultOverlay").classList.remove("hidden");
 
-        // Lưu điểm vào DB
+        // Lưu điểm vào DB (GỬI KÈM UNIT ID ĐỂ TRÁNH NULL)
         try {
+            console.log("Submitting:", { userId, currentScore, difficulty, unitId }); // Debug
+
             await fetch(SUBMIT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -472,7 +474,8 @@
                     userId: userId,
                     score: currentScore,
                     timeTaken: timeUsed,
-                    difficulty: difficulty // <--- Quan trọng: Gửi độ khó
+                    difficulty: difficulty,
+                    unitId: unitId // <--- BẮT BUỘC PHẢI CÓ
                 })
             });
             console.log("Đã lưu kết quả.");

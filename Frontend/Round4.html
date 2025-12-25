@@ -264,7 +264,7 @@
         document.getElementById("finalStats").style.display = "none";
         
         try {
-            // GỬI KÈM DIFFICULTY
+            // GỬI KÈM DIFFICULTY VÀ UNIT ID
             const res = await fetch(`${API_URL}/submit-round4`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -272,7 +272,8 @@
                     userId: userId, 
                     score: currentScore, 
                     timeTaken: timeUsed,
-                    difficulty: diff // <--- Quan trọng
+                    difficulty: diff,
+                    unitId: unitId // <--- QUAN TRỌNG: Gửi Unit ID
                 })
             });
             const result = await res.json();

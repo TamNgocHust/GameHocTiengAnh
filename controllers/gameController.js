@@ -10,13 +10,10 @@ function shuffleArray(array) {
 
 const gameController = {
 
-    // --- API MỚI: LẤY DANH SÁCH UNIT THEO LỚP ---
-    // Được gọi bởi UnitSelect.html
+    // --- API: LẤY DANH SÁCH UNIT THEO LỚP ---
     getUnitsByGrade: async (req, res) => {
         try {
-            const { grade } = req.query; // Lấy tham số ?grade=... từ URL
-            
-            // Mặc định nếu không có grade thì lấy lớp 5
+            const { grade } = req.query; 
             const gradeId = grade || 5; 
 
             const request = new sql.Request();
@@ -39,20 +36,19 @@ const gameController = {
     // --- ROUND 1: NỐI TỪ ---
     getRound1Data: async (req, res) => {
         try {
-            const { unitId } = req.params;
-            const { grade } = req.query; // <--- Nhận thêm grade từ Frontend
+            const { unitId } = req.params; // Đây là TopicID (Ví dụ: 11, 12...)
+            // const { grade } = req.query; // Không cần dùng grade nữa vì ID là duy nhất
 
             const request = new sql.Request();
-            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
-            request.input('gid', sql.Int, grade || 5); // <--- Input GradeID vào SQL
+            request.input('uid', sql.Int, unitId); // Truyền ID vào
 
+            // SỬA: Tìm trực tiếp theo TopicID (t.TopicID = @uid)
             const result = await request.query(`
                 SELECT TOP 10 o.OptionID, o.OptionContent 
                 FROM QuestionOptions o 
                 JOIN Questions q ON o.QuestionID = q.QuestionID 
                 JOIN Topics t ON q.TopicID = t.TopicID 
-                WHERE t.TopicName LIKE @TopicPattern 
-                AND t.GradeID = @gid  -- <--- QUAN TRỌNG: Lọc theo lớp
+                WHERE t.TopicID = @uid 
                 AND q.QuestionType = 'matching' 
                 ORDER BY NEWID()
             `);
@@ -69,22 +65,33 @@ const gameController = {
             });
             
             res.json({ success: true, totalPairs: leftCol.length, data: { leftColumn: shuffleArray(leftCol), rightColumn: shuffleArray(rightCol) } });
-        } catch (err) { res.status(500).json({ success: false }); }
+        } catch (err) { console.error(err); res.status(500).json({ success: false }); }
     },
 
+    // --- SUBMIT ROUND 1 ---
     submitRound1: async (req, res) => {
         try {
-            const { userId, answers, timeTaken, difficulty } = req.body;
-            let score = 10, wrongCount = 0;
-            if (answers) answers.forEach(p => { if (p.leftId !== p.rightId) wrongCount++; });
-            score = Math.max(0, score - wrongCount);
+            const { userId, answers, timeTaken, difficulty, unitId } = req.body;
+            
+            let score = 0; 
+            if (answers && answers.length > 0) {
+                let correctCount = 0;
+                answers.forEach(p => { 
+                    if (p.leftId === p.rightId) correctCount++; 
+                });
+                score = correctCount; 
+            }
 
             if (userId) {
                 const reqSQL = new sql.Request();
                 reqSQL.input('sid', userId).input('s', score).input('t', timeTaken);
-                reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal'); 
+                reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
+                reqSQL.input('uid', sql.Int, unitId); 
 
-                await reqSQL.query("INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 1, @s, @t, GETDATE(), @diff)");
+                await reqSQL.query(`
+                    INSERT INTO PlayHistory (StudentID, GameID, TopicID, Score, TimeTaken, PlayedAt, Difficulty) 
+                    VALUES (@sid, 1, @uid, @s, @t, GETDATE(), @diff)
+                `);
             }
             res.json({ success: true, isPassed: score >= 5, score });
         } catch (err) { console.error(err); res.status(500).json({ success: false }); }
@@ -94,19 +101,17 @@ const gameController = {
     getRound2Data: async (req, res) => {
         try {
             const { unitId } = req.params;
-            const { grade } = req.query; // <--- Nhận grade
-
+            
             const request = new sql.Request();
-            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
-            request.input('gid', sql.Int, grade || 5);
+            request.input('uid', sql.Int, unitId);
 
+            // SỬA: Tìm theo TopicID = @uid
             const result = await request.query(`
                 SELECT TOP 10 o.OptionID, o.OptionContent 
                 FROM QuestionOptions o 
                 JOIN Questions q ON o.QuestionID = q.QuestionID 
                 JOIN Topics t ON q.TopicID = t.TopicID 
-                WHERE t.TopicName LIKE @TopicPattern 
-                AND t.GradeID = @gid -- <--- Lọc lớp
+                WHERE t.TopicID = @uid
                 AND q.QuestionType = 'scramble' 
                 ORDER BY NEWID()
             `);
@@ -116,15 +121,20 @@ const gameController = {
         } catch (err) { res.status(500).json({ success: false }); }
     },
 
+    // --- SUBMIT ROUND 2 ---
     submitRound2: async (req, res) => {
         try {
-            const { userId, score, timeTaken, difficulty } = req.body;
+            const { userId, score, timeTaken, difficulty, unitId } = req.body;
             if (userId) {
                 const reqSQL = new sql.Request();
                 reqSQL.input('sid', userId).input('s', score).input('t', timeTaken);
                 reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
+                reqSQL.input('uid', sql.Int, unitId); 
 
-                await reqSQL.query("INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 2, @s, @t, GETDATE(), @diff)");
+                await reqSQL.query(`
+                    INSERT INTO PlayHistory (StudentID, GameID, TopicID, Score, TimeTaken, PlayedAt, Difficulty) 
+                    VALUES (@sid, 2, @uid, @s, @t, GETDATE(), @diff)
+                `);
             }
             res.json({ success: true, isPassed: score >= 5 });
         } catch (err) { res.status(500).json({ success: false }); }
@@ -134,17 +144,15 @@ const gameController = {
     getRound3Data: async (req, res) => {
         try {
             const { unitId } = req.params;
-            const { grade } = req.query; // <--- Nhận grade
-
+            
             const request = new sql.Request();
-            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
-            request.input('gid', sql.Int, grade || 5);
+            request.input('uid', sql.Int, unitId);
 
+            // SỬA: Tìm theo TopicID = @uid
             const qResult = await request.query(`
                 SELECT TOP 10 q.QuestionID, q.QuestionText 
                 FROM Questions q JOIN Topics t ON q.TopicID = t.TopicID 
-                WHERE t.TopicName LIKE @TopicPattern 
-                AND t.GradeID = @gid -- <--- Lọc lớp
+                WHERE t.TopicID = @uid
                 AND q.QuestionType = 'multiple_choice' 
                 ORDER BY NEWID()
             `);
@@ -168,9 +176,10 @@ const gameController = {
         } catch (err) { res.status(500).json({ success: false }); }
     },
 
+    // --- SUBMIT ROUND 3 ---
     submitRound3: async (req, res) => {
         try {
-            const { userId, answers, timeTaken, difficulty } = req.body;
+            const { userId, answers, timeTaken, difficulty, unitId } = req.body;
             let score = 0;
             
             if (answers && answers.length > 0) {
@@ -188,8 +197,12 @@ const gameController = {
                 const reqSQL = new sql.Request();
                 reqSQL.input('sid', userId).input('s', score).input('t', timeTaken);
                 reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
+                reqSQL.input('uid', sql.Int, unitId); 
 
-                await reqSQL.query("INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 3, @s, @t, GETDATE(), @diff)");
+                await reqSQL.query(`
+                    INSERT INTO PlayHistory (StudentID, GameID, TopicID, Score, TimeTaken, PlayedAt, Difficulty) 
+                    VALUES (@sid, 3, @uid, @s, @t, GETDATE(), @diff)
+                `);
             }
             res.json({ success: true, isPassed: score >= 5, score, total: 10 });
         } catch (err) { console.error(err); res.status(500).json({ success: false }); }
@@ -199,18 +212,16 @@ const gameController = {
     getRound4Data: async (req, res) => {
         try {
             const { unitId } = req.params;
-            const { grade } = req.query; // <--- Nhận grade
-
+            
             const request = new sql.Request();
-            request.input('TopicPattern', sql.NVarChar, `Unit ${unitId}:%`);
-            request.input('gid', sql.Int, grade || 5);
+            request.input('uid', sql.Int, unitId);
 
+            // SỬA: Tìm theo TopicID = @uid
             const qResult = await request.query(`
                 SELECT TOP 10 q.QuestionID, q.QuestionText, q.CorrectAnswer 
                 FROM Questions q 
                 JOIN Topics t ON q.TopicID = t.TopicID 
-                WHERE t.TopicName LIKE @TopicPattern 
-                AND t.GradeID = @gid -- <--- Lọc lớp
+                WHERE t.TopicID = @uid
                 AND q.QuestionType = 'fill_in_blank' 
                 ORDER BY NEWID()
             `);
@@ -221,29 +232,28 @@ const gameController = {
         } catch (err) { res.status(500).json({ success: false }); }
     },
 
+    // --- SUBMIT ROUND 4 ---
     submitRound4: async (req, res) => {
         try {
-            const { userId, score, timeTaken, difficulty } = req.body;
+            const { userId, score, timeTaken, difficulty, unitId } = req.body;
             if (userId) {
                 const reqSQL = new sql.Request();
                 reqSQL.input('sid', sql.Int, userId);
                 reqSQL.input('s', sql.Int, score);
                 reqSQL.input('t', sql.Int, timeTaken);
                 reqSQL.input('diff', sql.NVarChar, difficulty || 'Normal');
+                reqSQL.input('uid', sql.Int, unitId); 
                 
-                await reqSQL.query(`INSERT INTO PlayHistory (StudentID, GameID, Score, TimeTaken, PlayedAt, Difficulty) VALUES (@sid, 4, @s, @t, GETDATE(), @diff)`);
+                await reqSQL.query(`
+                    INSERT INTO PlayHistory (StudentID, GameID, TopicID, Score, TimeTaken, PlayedAt, Difficulty) 
+                    VALUES (@sid, 4, @uid, @s, @t, GETDATE(), @diff)
+                `);
 
-                const historyResult = await reqSQL.query(`SELECT GameID, Score, TimeTaken FROM PlayHistory WHERE StudentID = @sid ORDER BY PlayedAt DESC`);
-                const gameResults = {};
-                historyResult.recordset.forEach(row => {
-                    if (!gameResults[row.GameID]) gameResults[row.GameID] = { score: row.Score, time: row.TimeTaken };
-                });
+                const historyResult = await reqSQL.query(`SELECT Score, TimeTaken FROM PlayHistory WHERE StudentID = @sid AND TopicID = @uid`);
                 let totalScore = 0, totalTime = 0;
-                [1, 2, 3, 4].forEach(gid => {
-                    if (gameResults[gid]) { totalScore += gameResults[gid].score || 0; totalTime += gameResults[gid].time || 0; }
-                });
+                historyResult.recordset.forEach(row => { totalScore += row.Score; totalTime += row.TimeTaken; });
 
-                res.json({ success: true, isPassed: score >= 5, roundScore: score, totalScore: totalScore, totalTime: totalTime });
+                res.json({ success: true, isPassed: score >= 5, roundScore: score, totalScore, totalTime });
             } else { res.json({ success: false, message: "User ID missing" }); }
         } catch (err) { console.error(err); res.status(500).json({ success: false }); }
     }

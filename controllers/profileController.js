@@ -1,69 +1,62 @@
-const { connectDB, sql } = require('../config/db');
+const sql = require('mssql');
 
-// 1. Lấy thông tin chi tiết Profile
-exports.getUserProfile = async (req, res) => {
-    const { userId } = req.params;
+const profileController = {
+    // 1. Lấy thông tin Profile
+    getProfile: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const request = new sql.Request();
+            request.input('uid', sql.Int, id);
 
-    try {
-        const pool = await connectDB();
-        
-        const query = `
-            SELECT 
-                u.UserID, u.Username, u.FullName, r.RoleName,
-                s.AvatarURL, 
-                c.ClassName, 
-                g.GradeName,
-                (SELECT ISNULL(SUM(Score), 0) FROM PlayHistory WHERE StudentID = u.UserID) as LifetimeScore,
-                (SELECT ISNULL(SUM(Stars), 0) FROM PlayHistory WHERE StudentID = u.UserID) as LifetimeStars
-            FROM Users u
-            JOIN Roles r ON u.RoleID = r.RoleID
-            LEFT JOIN Students s ON u.UserID = s.StudentID
-            LEFT JOIN Classes c ON s.ClassID = c.ClassID
-            LEFT JOIN Grades g ON c.GradeID = g.GradeID
-            WHERE u.UserID = @id
-        `;
+            // Query lấy thông tin User + Tổng điểm + Tổng thời gian
+            const query = `
+                SELECT 
+                    u.Username, 
+                    u.FullName, 
+                    r.RoleName,
+                    s.AvatarURL,
+                    c.ClassName,
+                    (SELECT ISNULL(SUM(Score), 0) FROM PlayHistory WHERE StudentID = u.UserID) as TotalScore,
+                    (SELECT ISNULL(SUM(TimeTaken), 0) FROM PlayHistory WHERE StudentID = u.UserID) as TotalTime
+                FROM Users u
+                LEFT JOIN Roles r ON u.RoleID = r.RoleID
+                LEFT JOIN Students s ON u.UserID = s.StudentID
+                LEFT JOIN Classes c ON s.ClassID = c.ClassID
+                WHERE u.UserID = @uid
+            `;
 
-        const result = await pool.request()
-            .input('id', sql.Int, userId)
-            .query(query);
+            const result = await request.query(query);
 
-        if (result.recordset.length > 0) {
-            res.json({ success: true, data: result.recordset[0] });
-        } else {
-            res.status(404).json({ success: false, message: "Không tìm thấy người dùng" });
+            if (result.recordset.length > 0) {
+                res.json({ success: true, data: result.recordset[0] });
+            } else {
+                res.json({ success: false, message: "User not found" });
+            }
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ success: false, message: "Database Error" });
         }
+    },
 
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: "Lỗi server: " + err.message });
+    // 2. Cập nhật tên hiển thị
+    updateProfile: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { fullName } = req.body;
+            
+            const request = new sql.Request();
+            request.input('uid', sql.Int, id);
+            request.input('fn', sql.NVarChar, fullName);
+
+            await request.query("UPDATE Users SET FullName = @fn WHERE UserID = @uid");
+            
+            res.json({ success: true });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ success: false, message: "Update failed" });
+        }
     }
 };
 
-// 2. Cập nhật thông tin (Tên và Avatar)
-exports.updateProfile = async (req, res) => {
-    const { userId } = req.params;
-    const { fullName, avatarUrl } = req.body;
-
-    try {
-        const pool = await connectDB();
-        
-        // Cập nhật tên trong bảng Users
-        await pool.request()
-            .input('uid', sql.Int, userId)
-            .input('name', sql.NVarChar, fullName)
-            .query("UPDATE Users SET FullName = @name WHERE UserID = @uid");
-
-        // Nếu có avatar thì cập nhật bảng Students
-        if (avatarUrl) {
-            await pool.request()
-                .input('uid', sql.Int, userId)
-                .input('ava', sql.NVarChar, avatarUrl)
-                .query("UPDATE Students SET AvatarURL = @ava WHERE StudentID = @uid");
-        }
-
-        res.json({ success: true, message: "Cập nhật hồ sơ thành công!" });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-};
+// --- QUAN TRỌNG: DÒNG NÀY GIÚP ROUTES NHÌN THẤY CONTROLLER ---
+module.exports = profileController;

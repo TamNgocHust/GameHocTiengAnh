@@ -2,12 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const sql = require('mssql');
 
-// =============================================================
-// 1. IMPORT ROUTES (KHAI BÁO 1 LẦN DUY NHẤT TẠI ĐÂY)
-// =============================================================
+
 const gameRoutes = require('./routes/gameRoutes');
 
-// --- SỬA LẠI DÒNG NÀY ---
 const historyRoutes = require('./routes/historyRoutes'); 
 
 const leaderboardRoutes = require('./routes/leaderboardRoutes'); 
@@ -16,7 +13,11 @@ const leaderboardRoutes = require('./routes/leaderboardRoutes');
 let profileRoutes, reviewRoutes;
 try {
     profileRoutes = require('./routes/profileRoutes');
-} catch (error) { console.log("⚠️ Chưa có file profileRoutes (bỏ qua)"); }
+} catch (error) { 
+    console.error("❌ LỖI NẠP PROFILE:", error.message); 
+    // In ra toàn bộ lỗi để dễ xem
+    console.error(error);
+}
 
 try {
     reviewRoutes = require('./routes/reviewRoutes');

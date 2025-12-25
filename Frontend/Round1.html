@@ -191,8 +191,7 @@
             <div class="result-title" id="resultTitle">Hoàn thành!</div>
             <div class="result-score" id="resultMsg">Bạn đạt ... điểm</div>
             <div class="result-time" id="resultTime">Thời gian: 00:00</div>
-            <button class="btn-next" onclick="goToRound2()" id="btnNext">Qua Round 2</button>
-            <button class="btn-next" onclick="location.reload()" id="btnRetry" style="background:#ff9800; display:none">Thử lại</button>
+            <div id="resultButtons"></div>
         </div>
     </div>
 </div>
@@ -225,12 +224,8 @@
         const username = localStorage.getItem("username");
         document.getElementById("showUser").textContent = fullname || username || "Guest";
 
-        if (!userId) {
-            // alert("Bạn chưa đăng nhập!");
-        }
-
         // 2. Lấy Cấu hình Game từ LocalStorage
-        unitId = localStorage.getItem("currentUnitId"); // Lưu ý: UnitSelect.html lưu key là currentUnitId
+        unitId = localStorage.getItem("currentUnitId"); // Key: currentUnitId
         difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
         selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
 
@@ -285,7 +280,6 @@
                 startTimer();
             } else {
                 alert("Lỗi: " + data.message);
-                // Có thể quay về trang chọn bài
                 window.location.href = 'UnitSelect.html';
             }
         } catch (error) {
@@ -424,18 +418,22 @@
 
     // ============ NỘP BÀI & KẾT QUẢ ============
     async function submitGame() {
+        clearInterval(timerInterval); // Đảm bảo timer dừng
         const timeUsed = GAME_DURATION - timeLeft;
         const userId = localStorage.getItem("currentUserID");
 
         try {
-            // GỬI KÈM DIFFICULTY
+            // GỬI KÈM DIFFICULTY VÀ UNIT ID
             const payload = { 
                 userId, 
                 answers: userAnswers, 
                 timeTaken: timeUsed,
-                difficulty: difficulty // <--- Quan trọng
+                difficulty: difficulty,
+                unitId: unitId // <--- QUAN TRỌNG: Cần có UnitID để lưu vào PlayHistory
             };
             
+            console.log("Submitting:", payload);
+
             const res = await fetch(SUBMIT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -445,8 +443,7 @@
             showResult(result, timeUsed);
         } catch (e) {
             console.error(e);
-            // Fallback hiển thị offline nếu lỗi mạng
-            showResult({ score: currentScore }, timeUsed);
+            showResult({ score: currentScore, isPassed: currentScore >= 5 }, timeUsed);
         }
     }
 
@@ -455,8 +452,7 @@
         const title = document.getElementById("resultTitle");
         const msg = document.getElementById("resultMsg");
         const timeMsg = document.getElementById("resultTime");
-        const btnNext = document.getElementById("btnNext");
-        const btnRetry = document.getElementById("btnRetry");
+        const btnContainer = document.getElementById("resultButtons");
 
         overlay.classList.remove("hidden");
         
@@ -465,23 +461,46 @@
 
         timeMsg.textContent = `Thời gian: ${formatTimeUsed(timeUsed)}`;
         
+        btnContainer.innerHTML = "";
+
         if (passed) {
             title.textContent = "🎉 HOÀN THÀNH!";
             title.style.color = "#4caf50";
             msg.textContent = `Điểm: ${finalScore}/10. Mở khóa màn tiếp theo!`;
-            btnNext.style.display = "inline-block";
-            btnRetry.style.display = "none";
+            
+            // Nút qua màn
+            const btnNext = document.createElement("button");
+            btnNext.className = "btn-next";
+            btnNext.textContent = "Qua Round 2 ➜";
+            btnNext.onclick = goToRound2;
+            btnContainer.appendChild(btnNext);
         } else {
             title.textContent = "😓 THẤT BẠI";
             title.style.color = "#d32f2f";
             msg.textContent = `Điểm: ${finalScore}/10 (Cần tối thiểu 5 điểm)`;
-            btnNext.style.display = "none";
-            btnRetry.style.display = "inline-block";
+            
+            // Nút thử lại
+            const btnRetry = document.createElement("button");
+            btnRetry.className = "btn-next";
+            btnRetry.style.background = "#ff9800";
+            btnRetry.textContent = "Thử lại";
+            btnRetry.onclick = () => location.reload();
+            btnContainer.appendChild(btnRetry);
+
+            // Nút về menu
+            const btnMenu = document.createElement("button");
+            btnMenu.className = "btn-next";
+            btnMenu.style.background = "#9e9e9e";
+            btnMenu.style.marginLeft = "10px";
+            btnMenu.textContent = "Về Menu";
+            btnMenu.onclick = () => window.location.href = "menu.html";
+            btnContainer.appendChild(btnMenu);
         }
     }
 
     function goToRound2() {
-        // Chuyển sang Round 2
+        // Lưu config cho round 2 (nếu cần)
+        localStorage.setItem("gameConfig_Round", 2);
         window.location.href = "round2.html";
     }
 </script>

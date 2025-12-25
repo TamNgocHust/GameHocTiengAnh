@@ -4,10 +4,9 @@ const leaderboardController = {
     
     getLeaderboard: async (req, res) => {
         try {
-            // 1. Nhận tham số từ Frontend (unitId là bắt buộc để biết đang xem bảng xếp hạng bài nào)
             const { unitId, difficulty } = req.query;
 
-            // Nếu chưa chọn Unit thì trả về danh sách rỗng (hoặc xử lý tùy ý)
+            // Nếu chưa chọn Unit, trả về rỗng
             if (!unitId) {
                 return res.json({ success: true, data: [] });
             }
@@ -16,12 +15,11 @@ const leaderboardController = {
             request.input('uid', sql.Int, unitId);
             request.input('diff', sql.NVarChar, difficulty || 'Normal');
 
-            // --- CÂU LỆNH SQL NÂNG CAO (CTE) ---
-            // Bước 1 (RankedPlays): Tìm tất cả lịch sử chơi của Unit này, Độ khó này.
-            // Bước 2: Dùng ROW_NUMBER() để đánh số thứ tự cho mỗi học sinh:
-            //         Dòng số 1 (rn=1) là dòng có Điểm cao nhất, Thời gian thấp nhất.
-            // Bước 3: Chỉ lấy dòng số 1 (WHERE rp.rn = 1) để đưa vào bảng xếp hạng.
-            
+            // --- GIẢI THÍCH LOGIC MỚI (HƯỚNG B) ---
+            // Chúng ta Join thêm bảng Students, Classes và Topics ngay trong phần lọc dữ liệu (CTE)
+            // Và thêm điều kiện: c.GradeID = t.GradeID
+            // Nghĩa là: Khối của Lớp học sinh phải BẰNG Khối của Bài học thì mới được tính xếp hạng.
+
             const query = `
                 WITH RankedPlays AS (
                     SELECT 
@@ -33,21 +31,26 @@ const leaderboardController = {
                             ORDER BY ph.Score DESC, ph.TimeTaken ASC
                         ) as rn
                     FROM PlayHistory ph
-                    JOIN Games g ON ph.GameID = g.GameID
-                    WHERE g.TopicID = @uid 
+                    -- Join các bảng để lấy thông tin Khối Lớp
+                    JOIN Students s ON ph.StudentID = s.StudentID
+                    JOIN Classes c ON s.ClassID = c.ClassID
+                    JOIN Topics t ON ph.TopicID = t.TopicID
+                    
+                    WHERE ph.TopicID = @uid 
                       AND ph.Difficulty = @diff
+                      AND c.GradeID = t.GradeID -- <--- ĐIỀU KIỆN QUAN TRỌNG NHẤT CỦA HƯỚNG B
                 )
                 SELECT TOP 20
                     u.FullName,
                     u.Username,
-                    c.ClassName,  -- Lấy thêm tên lớp để hiển thị
-                    rp.Score as TotalScore, -- Đây là điểm cao nhất
+                    c.ClassName,
+                    rp.Score as TotalScore,
                     rp.TimeTaken as TotalTime
                 FROM RankedPlays rp
                 JOIN Users u ON rp.StudentID = u.UserID
                 LEFT JOIN Students s ON u.UserID = s.StudentID
                 LEFT JOIN Classes c ON s.ClassID = c.ClassID
-                WHERE rp.rn = 1  -- Chỉ lấy thành tích tốt nhất của mỗi người
+                WHERE rp.rn = 1
                 ORDER BY rp.Score DESC, rp.TimeTaken ASC;
             `;
 

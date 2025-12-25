@@ -131,14 +131,10 @@
     </div>
 
 <script>
-    // URL API Backend (Chỉnh lại nếu cổng khác 5000)
     const API_URL = "http://localhost:5000/api/profile";
-
-    // Lấy UserID từ localStorage
     const currentUserID = localStorage.getItem("currentUserID"); 
     const currentUserRole = localStorage.getItem("role");
 
-    // --- HÀM FORMAT THỜI GIAN (Giây -> MM:SS) ---
     function formatTime(seconds) {
         if (!seconds || seconds < 0) return "00:00";
         const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -146,93 +142,75 @@
         return `${m}:${s}`;
     }
 
-    // === 1. HÀM TẢI THÔNG TIN ===
     async function loadProfile() {
         if (!currentUserID) {
-            alert("Bạn chưa đăng nhập! Quay về trang login.");
             window.location.href = "login.html";
             return;
         }
 
         try {
-            // Gọi API lấy dữ liệu
             const response = await fetch(`${API_URL}/${currentUserID}`);
             const result = await response.json();
 
             if (result.success) {
                 const data = result.data;
 
-                // Điền dữ liệu vào giao diện
+                // Hiển thị thông tin
                 document.getElementById("valUsername").textContent = data.Username;
                 document.getElementById("inpFullname").value = data.FullName; 
                 document.getElementById("valClass").textContent = data.ClassName || "Chưa có lớp";
                 document.getElementById("valRole").textContent = data.RoleName;
 
-                // Điền Avatar 
-                if (data.AvatarURL) {
+                // Xử lý Avatar (Nếu NULL thì giữ nguyên ảnh mặc định)
+                if (data.AvatarURL && data.AvatarURL.trim() !== "") {
                     document.getElementById("imgAvatar").src = data.AvatarURL;
                 }
 
-                // Điền thống kê
-                document.getElementById("valScore").textContent = data.LifetimeScore || 0;
-                
-                // --- SỬA LOGIC HIỂN THỊ THỜI GIAN ---
-                // Server có thể trả về LifetimeTime hoặc TotalTime tùy backend
-                const totalSeconds = data.LifetimeTime || data.TotalTime || 0;
-                document.getElementById("valTime").textContent = formatTime(totalSeconds);
+                // Hiển thị thống kê (Lấy từ Backend mới)
+                document.getElementById("valScore").textContent = data.TotalScore || 0;
+                document.getElementById("valTime").textContent = formatTime(data.TotalTime);
 
             } else {
-                alert("Không tìm thấy thông tin người dùng!");
+                alert("Lỗi: " + result.message);
             }
         } catch (error) {
             console.error("Lỗi:", error);
-            alert("Lỗi kết nối Server! Hãy kiểm tra lại backend.");
         }
     }
 
-    // === 2. HÀM LƯU THAY ĐỔI ===
     async function saveProfile() {
         const newName = document.getElementById("inpFullname").value;
-
-        if (!newName.trim()) {
-            alert("Tên không được để trống!");
-            return;
-        }
+        if (!newName.trim()) return alert("Tên không được để trống!");
 
         try {
             const response = await fetch(`${API_URL}/update/${currentUserID}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    fullName: newName
-                })
+                body: JSON.stringify({ fullName: newName })
             });
-
             const result = await response.json();
             
             if (result.success) {
                 alert("✅ Cập nhật thành công!");
                 localStorage.setItem("fullname", newName);
             } else {
-                alert("❌ Cập nhật thất bại: " + result.message);
+                alert("❌ Lỗi: " + result.message);
             }
-
         } catch (error) {
-            console.error("Lỗi update:", error);
-            alert("Lỗi khi lưu dữ liệu!");
+            alert("Lỗi kết nối!");
         }
     }
 
-    // === 3. HÀM QUAY LẠI ===
     function goBack() {
-        if (currentUserRole === "teacher") {
+        // Chuyển về thường để so sánh cho chính xác
+        const role = (currentUserRole || "").toLowerCase();
+        if (role === "teacher" || role === "admin") {
             window.location.href = "teacher-menu.html";
         } else {
             window.location.href = "menu.html";
         }
     }
 
-    // Tự động chạy khi mở trang
     loadProfile();
 </script>
 
