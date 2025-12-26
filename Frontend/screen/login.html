@@ -15,6 +15,9 @@
         display: flex; justify-content: center; align-items: center;
     }
 
+    /* Nếu ảnh nền bị lỗi đường dẫn thì dùng màu tạm */
+    body { background-color: #f0f2f5; }
+
     .overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.25); }
 
     .login-card {
@@ -79,13 +82,16 @@
 
     <div class="links">
         <p class="link" onclick="showMessage('Liên hệ GVCN để cấp lại!')">Quên mật khẩu?</p>
-        <p class="link" onclick="location.href='home.html'">Quay lại trang chủ</p>
     </div>
 </div>
 
 <script>
+    // --- 1. CẤU HÌNH API (ĐÃ SỬA CHUẨN) ---
+    // Sử dụng đường dẫn tương đối "/api/auth" để tự động nhận diện domain (localhost hoặc ngrok)
+    const API_URL = "/api/auth";
+
     async function handleLogin() {
-        // 1. Lấy giá trị input
+        // 2. Lấy giá trị input
         const usernameIn = document.getElementById("username").value.trim();
         const passwordIn = document.getElementById("password").value.trim();
         const msgBox = document.getElementById("message");
@@ -98,14 +104,14 @@
             return;
         }
 
-        // 2. Reset trạng thái
+        // 3. Reset trạng thái
         msgBox.textContent = "⏳ Đang kết nối...";
         msgBox.className = "message info";
         btn.disabled = true;
 
         try {
-            // 3. GỌI API (Đảm bảo cổng 5000 là đúng với server.js)
-            const response = await fetch("http://localhost:5000/api/auth/login", {
+            // 4. GỌI API (Sử dụng biến API_URL đã khai báo)
+            const response = await fetch(API_URL + "/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
@@ -116,12 +122,11 @@
 
             const data = await response.json();
 
-            // 4. Xử lý kết quả trả về từ Server
+            // 5. Xử lý kết quả trả về từ Server
             if (data.success) {
                 // --- ĐĂNG NHẬP THÀNH CÔNG ---
                 
-                // Lưu vào LocalStorage (Sửa lại để khớp với dữ liệu Server trả về)
-                // Server trả về: userId, fullName, role (là số ID)
+                // Lưu vào LocalStorage
                 localStorage.setItem("currentUserID", data.userId); 
                 localStorage.setItem("username", usernameIn);
                 localStorage.setItem("fullname", data.fullName);
@@ -132,13 +137,13 @@
 
                 // Chuyển trang sau 1 giây
                 setTimeout(() => {
-                    // Giả sử RoleID = 2 là Giáo viên (dựa trên file SQL cũ)
-                    // Nếu RoleID = 3 là Học sinh
+                    // Nếu là Giáo viên (Role = 2)
                     if (data.role == 2) { 
                         window.location.href = "teacher-menu.html";
                     } else {
                         // Mặc định cho học sinh
-                        window.location.href = "menu.html";
+                        // Chuyển đến trang chọn lớp hoặc menu chính
+                        window.location.href = "menu.html"; 
                     }
                 }, 1000);
 

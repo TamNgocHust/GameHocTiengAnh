@@ -158,12 +158,12 @@
 
         try {
             // --- GỌI API TỪ VỰNG ---
-            const resVocab = await fetch(`http://localhost:5000/api/review/vocab/${unitId}`);
+            const resVocab = await fetch(`/api/review/vocab/${unitId}`);
             const dataVocab = await resVocab.json();
             renderVocab(dataVocab);
 
             // --- GỌI API NGỮ PHÁP ---
-            const resGrammar = await fetch(`http://localhost:5000/api/review/grammar/${unitId}`);
+            const resGrammar = await fetch(`/api/review/grammar/${unitId}`);
             const dataGrammar = await resGrammar.json();
             renderGrammar(dataGrammar);
 
