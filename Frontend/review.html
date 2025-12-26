@@ -26,13 +26,21 @@
     }
 
     /* Header */
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .header { 
+        display: flex; justify-content: space-between; align-items: center; 
+        margin-bottom: 15px; 
+        flex-wrap: wrap; gap: 10px; /* Để không bị vỡ giao diện trên màn hình nhỏ */
+    }
     .title { font-size: 1.8rem; font-weight: bold; color: #d13625; text-transform: uppercase; }
     
+    /* Khu vực chứa 2 ô select */
+    .controls { display: flex; gap: 10px; }
+
     select { 
         padding: 8px 15px; font-size: 1rem; border-radius: 10px; 
         border: 2px solid #ff8c42; outline: none; background: #fff; cursor: pointer;
     }
+    select:focus { border-color: #d13625; }
 
     /* Nội dung chia 2 cột */
     .content-wrapper { display: flex; gap: 20px; flex: 1; overflow: hidden; }
@@ -87,18 +95,19 @@
 
         <div class="header">
             <div class="title">ÔN TẬP KIẾN THỨC</div>
-            <select id="unitSelect" onchange="loadAllData()">
-    <option value="">-- Chọn bài học --</option>
-    <option value="0">Unit 0: Getting Started</option>
-    <option value="1">Unit 1: Animal Habitats</option>
-    <option value="2">Unit 2: Let's Eat!</option>
-    <option value="3">Unit 3: On the Move!</option>
-    <option value="4">Unit 4: Our Senses</option>
-    <option value="5">Unit 5: Our Health</option>
-    <option value="6">Unit 6: The World of School</option>
-    <option value="7">Unit 7: The World of Work</option>
-    <option value="8">Unit 8: Fantastic Holidays and Festivals</option>
-</select>
+            
+            <div class="controls">
+                <select id="gradeSelect" onchange="loadUnitsByGrade()">
+                    <option value="1">Lớp 1</option>
+                    <option value="2">Lớp 2</option>
+                    <option value="3">Lớp 3</option>
+                    <option value="4">Lớp 4</option>
+                    <option value="5" selected>Lớp 5</option> </select>
+
+                <select id="unitSelect" onchange="loadReviewData()">
+                    <option value="">-- Đang tải Unit... --</option>
+                </select>
+            </div>
         </div>
 
         <div class="content-wrapper">
@@ -121,63 +130,94 @@
     </div>
 
 <script>
-    // 1. Hiển thị User
-    // 1. Hiển thị User (ĐÃ SỬA LẠI CHO ĐÚNG KEY)
-    // Lấy thông tin từ các key chuẩn
-    const userId = localStorage.getItem("currentUserID");
+    const API_REVIEW = "/api/review";
+    const API_GAME = "/api/game"; // API để lấy danh sách Unit
+
+    // --- 1. HIỂN THỊ USER ---
     const fullname = localStorage.getItem("fullname");
     const username = localStorage.getItem("username");
-
-    // Logic hiển thị tên ưu tiên: Fullname -> Username -> "Khách"
     let displayUser = "Khách";
-    if (fullname && fullname !== "null" && fullname !== "undefined") {
-        displayUser = fullname;
-    } else if (username) {
-        displayUser = username;
-    }
-
-    // Hiển thị lên màn hình
+    if (fullname && fullname !== "null") displayUser = fullname;
+    else if (username) displayUser = username;
     document.getElementById("showUser").textContent = displayUser;
 
-    // Kiểm tra bảo mật (Nếu chưa đăng nhập thì đá về login - Tùy chọn)
-    if (!userId) {
-        // window.location.href = "login.html"; // Bỏ comment dòng này nếu muốn bắt buộc đăng nhập
+    // --- 2. HÀM TẢI DANH SÁCH UNIT (KHI CHỌN LỚP) ---
+    async function loadUnitsByGrade() {
+        const grade = document.getElementById("gradeSelect").value;
+        const unitSelect = document.getElementById("unitSelect");
+        
+        // Reset ô chọn Unit
+        unitSelect.innerHTML = '<option value="">⏳ Đang tải bài học...</option>';
+        unitSelect.disabled = true;
+
+        try {
+            const res = await fetch(`${API_GAME}/units?grade=${grade}`);
+            const data = await res.json();
+
+            unitSelect.innerHTML = '<option value="">-- Chọn bài học --</option>'; // Reset lại
+            
+            if (data.success && data.data.length > 0) {
+                // Duyệt qua danh sách và tạo option
+                data.data.forEach((unit, index) => {
+                    const option = document.createElement("option");
+                    
+                    // Value là ID thật (để gọi API review)
+                    option.value = unit.TopicID; 
+                    
+                    // Text hiển thị là số thứ tự (Unit 0, Unit 1...) cho đẹp
+                    let uName = unit.TopicName;
+                    if (uName.includes(':')) uName = uName.split(':')[1].trim();
+                    
+                    option.textContent = `Unit ${index}: ${uName}`;
+                    unitSelect.appendChild(option);
+                });
+                unitSelect.disabled = false;
+            } else {
+                unitSelect.innerHTML = '<option value="">Không có bài học nào</option>';
+            }
+
+        } catch (error) {
+            console.error(error);
+            unitSelect.innerHTML = '<option value="">Lỗi kết nối!</option>';
+        }
     }
 
-    // 2. Hàm gọi API tổng hợp
-    async function loadAllData() {
+    // --- 3. HÀM TẢI DỮ LIỆU REVIEW (KHI CHỌN UNIT) ---
+    async function loadReviewData() {
         const unitId = document.getElementById("unitSelect").value;
         const vocabDiv = document.getElementById("vocabContent");
         const grammarDiv = document.getElementById("grammarContent");
 
-        if (!unitId) return;
+        if (!unitId) return; // Nếu chưa chọn gì thì thôi
 
         // Hiện loading
         vocabDiv.innerHTML = '<p style="text-align:center; color:blue">⏳ Đang tải từ vựng...</p>';
         grammarDiv.innerHTML = '<p style="text-align:center; color:blue">⏳ Đang tải ngữ pháp...</p>';
 
         try {
-            // --- GỌI API TỪ VỰNG ---
-            const resVocab = await fetch(`/api/review/vocab/${unitId}`);
+            // Gọi API Từ vựng
+            const resVocab = await fetch(`${API_REVIEW}/vocab/${unitId}`);
+            if (!resVocab.ok) throw new Error("Lỗi API Vocab");
             const dataVocab = await resVocab.json();
             renderVocab(dataVocab);
 
-            // --- GỌI API NGỮ PHÁP ---
-            const resGrammar = await fetch(`/api/review/grammar/${unitId}`);
+            // Gọi API Ngữ pháp
+            const resGrammar = await fetch(`${API_REVIEW}/grammar/${unitId}`);
+            if (!resGrammar.ok) throw new Error("Lỗi API Grammar");
             const dataGrammar = await resGrammar.json();
             renderGrammar(dataGrammar);
 
         } catch (error) {
             console.error(error);
-            alert("Lỗi kết nối Server! Bạn hãy kiểm tra lại Node.js");
+            vocabDiv.innerHTML = '<p style="text-align:center; color:red">❌ Không thể tải dữ liệu.</p>';
+            grammarDiv.innerHTML = '<p style="text-align:center; color:red">❌ Không thể tải dữ liệu.</p>';
         }
     }
 
-    // 3. Hàm vẽ bảng Từ Vựng
-    // 3. Hàm vẽ bảng Từ Vựng (ĐÃ SỬA: XÓA CỘT VÍ DỤ)
+    // --- 4. CÁC HÀM RENDER (VẼ GIAO DIỆN) ---
     function renderVocab(data) {
         const container = document.getElementById("vocabContent");
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             container.innerHTML = '<p style="text-align:center">Chưa có dữ liệu từ vựng.</p>';
             return;
         }
@@ -206,10 +246,10 @@
         html += '</tbody></table>';
         container.innerHTML = html;
     }
-    // 4. Hàm vẽ danh sách Ngữ Pháp
+
     function renderGrammar(data) {
         const container = document.getElementById("grammarContent");
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             container.innerHTML = '<p style="text-align:center">Chưa có dữ liệu ngữ pháp.</p>';
             return;
         }
@@ -219,13 +259,10 @@
             html += `
                 <div class="grammar-box">
                     <div class="gm-name">${item.GrammarName}</div>
-                    
                     <span class="gm-label">Cấu trúc:</span>
                     <div class="gm-content" style="color:#d32f2f; font-weight:bold">${item.Structure}</div>
-
                     <span class="gm-label">Cách dùng:</span>
                     <div class="gm-content">${item.Usage}</div>
-
                     <span class="gm-label">Ví dụ:</span>
                     <div class="gm-example">${item.Example}</div>
                 </div>
@@ -233,6 +270,10 @@
         });
         container.innerHTML = html;
     }
+
+    // --- 5. TỰ ĐỘNG CHẠY KHI VÀO TRANG ---
+    // Mặc định tải danh sách Unit của lớp đang chọn (Lớp 5)
+    window.onload = loadUnitsByGrade;
 </script>
 
 </body>

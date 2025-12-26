@@ -17,26 +17,26 @@ log on
 
 -- 1. Sử dụng Database của bạn (Nếu chưa có DB thì bỏ dòng này và tạo DB trước)
 USE GameHocTiengAnh1; 
-GO
+
 
 -- 2. Tạo tài khoản đăng nhập vào Server (Tên: GameUser, Mật khẩu: 123456)
 -- Lệnh này tự động BỎ QUA chính sách mật khẩu phức tạp
 CREATE LOGIN GameUser WITH PASSWORD = '123456', CHECK_POLICY = OFF;
-GO
+
 
 -- 3. Tạo User trong Database từ tài khoản trên
 CREATE USER GameUser FOR LOGIN GameUser;
-GO
+
 
 -- 4. Cấp quyền Đọc (Select) và Ghi (Insert/Update) cho User này
 ALTER ROLE db_datareader ADD MEMBER GameUser;
 ALTER ROLE db_datawriter ADD MEMBER GameUser;
-GO
+
 
 -- 5. Đảm bảo Server cho phép đăng nhập bằng tài khoản SQL (Mixed Mode)
 EXEC xp_instance_regwrite N'HKEY_LOCAL_MACHINE', 
     N'Software\Microsoft\MSSQLServer\MSSQLServer', N'LoginMode', REG_DWORD, 2;
-GO
+
 
 PRINT '=== TẠO TÀI KHOẢN THÀNH CÔNG ===';
 PRINT 'User: GameUser';
@@ -44,7 +44,7 @@ PRINT 'Pass: 123456';
 SELECT @@SERVERNAME;
 -- Sử dụng database vừa tạo
 USE GameHocTiengAnh1;
-GO
+
 
 -- =================================================================
 -- I. NHÓM BẢNG QUẢN LÝ NGƯỜI DÙNG
@@ -99,14 +99,16 @@ CREATE TABLE Students (
 -- Bảng Chủ đề cho từ vựng và câu hỏi
 CREATE TABLE Topics (
     TopicID INT PRIMARY KEY IDENTITY(1,1),
-    TopicName NVARCHAR(100) NOT NULL
+    TopicName NVARCHAR(100) NOT NULL,
+    GradeID INT, -- Thêm cột này
+    FOREIGN KEY (GradeID) REFERENCES Grades(GradeID)
 );
 
 -- Bảng Từ vựng
 CREATE TABLE Vocabulary (
     VocabID INT PRIMARY KEY IDENTITY(1,1),
     Word NVARCHAR(100) NOT NULL,
-    WordType NVARCHAR(50), -- [MỚI] Loại từ (Danh từ, Động từ...)
+    WordType NVARCHAR(50), 
     Meaning NVARCHAR(255),
     Pronunciation NVARCHAR(100),
     AudioURL NVARCHAR(255) NULL,
@@ -119,12 +121,11 @@ CREATE TABLE Vocabulary (
 -- Tạo bảng Ngữ pháp
 CREATE TABLE Grammar (
     GrammarID INT PRIMARY KEY IDENTITY(1,1),
-    GrammarName NVARCHAR(150) NOT NULL, -- Tên (Vd: Câu hỏi tên)
-    Structure NVARCHAR(MAX),            -- Công thức (Vd: What is your name?)
-    Usage NVARCHAR(MAX),                -- Cách dùng (Vd: Dùng để hỏi tên người khác)
-    Example NVARCHAR(MAX),              -- Ví dụ (Vd: My name is Lan.)
-    Note NVARCHAR(MAX) ,                 -- Ghi chú thêm (nếu có)
-    TopicID INT,                        -- Liên kết với Chủ đề
+    GrammarName NVARCHAR(150) NOT NULL, 
+    Structure NVARCHAR(MAX),            
+    Usage NVARCHAR(MAX),                
+    Example NVARCHAR(MAX),              
+    TopicID INT,                        
     FOREIGN KEY (TopicID) REFERENCES Topics(TopicID)
 );
 
@@ -137,7 +138,6 @@ CREATE TABLE Questions (
     AudioURL NVARCHAR(255),
     ImageURL NVARCHAR(255), -- Hình ảnh cho câu hỏi
     TopicID INT,
-    HintText NVARCHAR(255), -- Gợi ý khi bí bằng văn bản
     CorrectAnswer NVARCHAR(255),
     FOREIGN KEY (TopicID) REFERENCES Topics(TopicID),
     CONSTRAINT CK_QuestionType CHECK (QuestionType IN ('multiple_choice', 'fill_in_blank', 'scramble', 'matching')),
@@ -159,7 +159,7 @@ CREATE TABLE Games (
     GameName NVARCHAR(150) NOT NULL,
     GameDescription NVARCHAR(500),
     TopicID INT,
-    TimeLimit INT DEFAULT 0,  -- Thời gian chơi (giây). 0 là không giới hạn(chế độ luyện tập),>0 sẽ có tính thời gian(thử thách hơn)
+    TimeLimit INT DEFAULT 0,  
     PassScore INT DEFAULT 5,  -- Điểm tối thiểu để qua màn
     FOREIGN KEY (TopicID) REFERENCES Topics(TopicID)
 );
@@ -178,25 +178,24 @@ CREATE TABLE Game_Questions (
 -- III. NHÓM BẢNG QUẢN LÝ KẾT QUẢ
 -- =================================================================
 
--- Bảng Lịch sử chơi game của học sinh
+-- Bảng Lịch sử chơi game (Cấu trúc mới chuẩn cho Leaderboard)
 CREATE TABLE PlayHistory (
     HistoryID INT PRIMARY KEY IDENTITY(1,1),
     StudentID INT NOT NULL,
     GameID INT NOT NULL,
+    TopicID INT,            -- [MỚI] Để biết chơi bài nào
     Score INT NOT NULL,
-    Stars INT NOT NULL,
-    TimeTaken INT, -- Thời gian hoàn thành tính bằng giây
+    TimeTaken INT,          -- Thời gian chơi (giây)
+    Difficulty NVARCHAR(50),-- [MỚI] Lưu độ khó (Easy/Normal/Hard)
     PlayedAt DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (StudentID) REFERENCES Users(UserID),
     FOREIGN KEY (GameID) REFERENCES Games(GameID),
-    -- Ràng buộc logic dữ liệu
-    CONSTRAINT CK_Score_Positive CHECK (Score >= 0),
-    CONSTRAINT CK_Stars_Range CHECK (Stars BETWEEN 0 AND 3)
+    FOREIGN KEY (TopicID) REFERENCES Topics(TopicID),
+    CONSTRAINT CK_Score_Positive CHECK (Score >= 0)
 );
 
--- Index giúp lọc lịch sử của 1 học sinh nhanh hơn
-CREATE INDEX IX_PlayHistory_Student ON PlayHistory(StudentID);
-
+-- Index giúp lọc lịch sử nhanh hơn cho Leaderboard
+CREATE INDEX IX_PlayHistory_Leaderboard ON PlayHistory(TopicID, Difficulty, Score DESC, TimeTaken ASC);
 -- Bảng chi tiết câu trả lời của học sinh (Tùy chọn nhưng rất hữu ích)
 CREATE TABLE StudentAnswers (
     AnswerID BIGINT PRIMARY KEY IDENTITY(1,1),
@@ -207,87 +206,6 @@ CREATE TABLE StudentAnswers (
     FOREIGN KEY (HistoryID) REFERENCES PlayHistory(HistoryID),
     FOREIGN KEY (QuestionID) REFERENCES Questions(QuestionID)
 );
-
--- Bảng xếp hạng 
--- Lưu ý: Khi Code Backend xử lý chuyển lớp cho HS, phải update cả bảng này!
-CREATE TABLE LeaderboardEntries (
-    LeaderboardEntryID BIGINT PRIMARY KEY IDENTITY(1,1),
-    StudentID INT NOT NULL,
-    ClassID INT NOT NULL,
-    GradeID INT NOT NULL,
-    TotalScore INT NOT NULL DEFAULT 0,
-    TotalStars INT NOT NULL DEFAULT 0,
-    RankMonth DATE NOT NULL, -- Ví dụ: Lưu ngày đầu tiên của tháng (2025-10-01)
-    LastUpdated DATETIME DEFAULT GETDATE(),
-    -- Đảm bảo mỗi học sinh chỉ có một bản ghi cho mỗi tháng
-    CONSTRAINT UQ_LeaderboardEntry_StudentMonth UNIQUE (StudentID, RankMonth),
-    FOREIGN KEY (StudentID) REFERENCES Users(UserID),
-    FOREIGN KEY (ClassID) REFERENCES Classes(ClassID),
-    FOREIGN KEY (GradeID) REFERENCES Grades(GradeID)
-);
-
--- Index quan trọng để Sort bảng xếp hạng nhanh (VD: Lấy top 10 lớp 3A)
-CREATE INDEX IX_Leaderboard_Sort ON LeaderboardEntries(ClassID, RankMonth, TotalScore DESC);
-
-GO
--- =================================================================
-
-CREATE TRIGGER UpdateLeaderboard_OnPlay
-ON PlayHistory
-AFTER INSERT, UPDATE, DELETE
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Khai báo biến bảng
-    DECLARE @NetChanges TABLE (
-        StudentID INT,
-        RankMonth DATE,
-        DeltaScore INT,
-        DeltaStars INT
-    );
-
-    -- Tính toán Delta
-    INSERT INTO @NetChanges (StudentID, RankMonth, DeltaScore, DeltaStars)
-    SELECT 
-        StudentID, 
-        DATEFROMPARTS(YEAR(PlayedAt), MONTH(PlayedAt), 1),
-        SUM(Score),
-        SUM(Stars)
-    FROM (
-        SELECT StudentID, PlayedAt, Score, Stars FROM inserted
-        UNION ALL
-        SELECT StudentID, PlayedAt, -Score, -Stars FROM deleted
-    ) AS AllChanges
-    GROUP BY StudentID, DATEFROMPARTS(YEAR(PlayedAt), MONTH(PlayedAt), 1);
-
-    -- Tạo dòng mới nếu chưa có
-    INSERT INTO LeaderboardEntries (StudentID, ClassID, GradeID, RankMonth, TotalScore, TotalStars, LastUpdated)
-    SELECT DISTINCT
-        NC.StudentID,
-        S.ClassID,
-        C.GradeID,
-        NC.RankMonth,
-        0, 0, GETDATE()
-    FROM @NetChanges NC
-    JOIN Students S ON NC.StudentID = S.StudentID
-    JOIN Classes C ON S.ClassID = C.ClassID
-    WHERE NOT EXISTS (
-        SELECT 1 FROM LeaderboardEntries LE 
-        WHERE LE.StudentID = NC.StudentID AND LE.RankMonth = NC.RankMonth
-    );
-
-    -- Cập nhật điểm
-    UPDATE LE
-    SET 
-        LE.TotalScore = LE.TotalScore + NC.DeltaScore,
-        LE.TotalStars = LE.TotalStars + NC.DeltaStars,
-        LE.LastUpdated = GETDATE()
-    FROM LeaderboardEntries LE
-    INNER JOIN @NetChanges NC 
-        ON LE.StudentID = NC.StudentID AND LE.RankMonth = NC.RankMonth;
-END;
-GO
 
 CREATE INDEX IX_Vocabulary_TopicID ON Vocabulary(TopicID);
 CREATE INDEX IX_Questions_TopicID ON Questions(TopicID);
@@ -304,7 +222,7 @@ VALUES
     (N'Khối 3'),
     (N'Khối 4'),
     (N'Khối 5');
-GO
+
 
 -- KHAI BÁO BIẾN ĐỂ LẤY ROLE ID TỰ ĐỘNG
 DECLARE @RoleAdminID INT = (SELECT RoleID FROM Roles WHERE RoleName = 'admin');
@@ -362,7 +280,7 @@ INSERT INTO Users (Username, PasswordHash, FullName, RoleID) VALUES
     (N'student38', 'student', N'Bùi Anh Tuấn', @RoleStudentID),
     (N'student39', 'student', N'Đỗ Mỹ Linh', @RoleStudentID),
     (N'student40', 'student', N'Ngô Thanh Vân', @RoleStudentID);
-GO
+
 
 --*Chèn lớp:
 -- Lấy ID của Khối 5
@@ -379,7 +297,7 @@ INSERT INTO Classes (ClassName, GradeID, TeacherID) VALUES
         (N'Lớp 5B', @Grade5ID, @TeacherB_ID), -- GV Nguyễn Văn B
         (N'Lớp 5C', @Grade5ID, @TeacherC_ID), -- GV Nguyễn Văn C
         (N'Lớp 5D', @Grade5ID, @TeacherD_ID); -- GV Nguyễn Văn D
-GO
+
 --Hàm thêm học sinh vào lớp
 CREATE PROCEDURE AddStudentToClass
     @StudentUsername NVARCHAR(100),
@@ -414,7 +332,7 @@ BEGIN
         PRINT N'Học sinh ' + @StudentUsername + N' đã có lớp rồi!';
     END
 END;
-GO
+
 -- PHÂN BỔ HỌC SINH VÀO LỚP 5A (Student 1 - 10)
 EXEC AddStudentToClass 'student1', N'Lớp 5A';
 EXEC AddStudentToClass 'student2', N'Lớp 5A';
@@ -459,11 +377,10 @@ EXEC AddStudentToClass 'student37', N'Lớp 5D';
 EXEC AddStudentToClass 'student38', N'Lớp 5D';
 EXEC AddStudentToClass 'student39', N'Lớp 5D';
 EXEC AddStudentToClass 'student40', N'Lớp 5D';
-GO
 
---Màn 2: Sắp xếp(Scramble)
+
 USE GameHocTiengAnh1;
-GO
+
 
 -- 1. Tạo Topic riêng cho Game Round 2
 INSERT INTO Topics (TopicName) VALUES (N'Game Round 2 Pool');
@@ -476,150 +393,27 @@ VALUES (@GameTopic2ID, N'Sắp xếp các từ xáo trộn thành câu hoàn ch�
 
 DECLARE @Q2_ID INT = SCOPE_IDENTITY();
 
-
-
--- ====================================================
--- BƯỚC 1: XÓA INDEX CŨ (Khắc phục lỗi Msg 1913)
--- ====================================================
-IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Leaderboard_Sort' AND object_id = OBJECT_ID('LeaderboardEntries'))
-BEGIN
-    DROP INDEX IX_Leaderboard_Sort ON LeaderboardEntries;
-    PRINT N'✅ Đã xóa Index cũ thành công.';
-END
-GO
-
--- ====================================================
--- BƯỚC 2: GỠ BỎ RÀNG BUỘC CỦA CỘT TOTALSTARS (Khắc phục lỗi Msg 5074)
--- ====================================================
-DECLARE @ConstraintName NVARCHAR(200);
-SELECT @ConstraintName = name 
-FROM sys.default_constraints 
-WHERE parent_object_id = OBJECT_ID('LeaderboardEntries') 
-AND parent_column_id = (SELECT column_id FROM sys.columns WHERE object_id = OBJECT_ID('LeaderboardEntries') AND name = 'TotalStars');
-
-IF @ConstraintName IS NOT NULL
-BEGIN
-    EXEC('ALTER TABLE LeaderboardEntries DROP CONSTRAINT ' + @ConstraintName);
-    PRINT N'✅ Đã gỡ bỏ khóa (Constraint): ' + @ConstraintName;
-END
-GO
-
--- ====================================================
--- BƯỚC 3: XÓA CỘT TOTALSTARS (Khắc phục lỗi Msg 4922)
--- ====================================================
-IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'LeaderboardEntries') AND name = 'TotalStars')
-BEGIN
-    ALTER TABLE LeaderboardEntries DROP COLUMN TotalStars;
-    PRINT N'✅ Đã xóa cột TotalStars thành công.';
-END
-GO
-
--- ====================================================
--- BƯỚC 4: TẠO LẠI INDEX MỚI (CHUẨN ĐIỂM + THỜI GIAN)
--- ====================================================
-CREATE INDEX IX_Leaderboard_Sort 
-ON LeaderboardEntries(ClassID, RankMonth, TotalScore DESC, TotalTime ASC);
-GO
-USE GameHocTiengAnh1;
-GO
-
-PRINT N'=== BẮT ĐẦU QUÁ TRÌNH DỌN DẸP DỮ LIỆU CŨ (GLOBAL SUCCESS) ===';
-
--- 1. XÓA DỮ LIỆU LIÊN QUAN ĐẾN HOẠT ĐỘNG CỦA HỌC SINH (Bắt buộc vì dính khóa ngoại tới Câu hỏi & Game)
--- Nếu không xóa bảng này, bạn không thể xóa Câu hỏi hay Game được.
-DELETE FROM StudentAnswers;
-PRINT N'✅ Đã xóa chi tiết câu trả lời của học sinh (StudentAnswers).';
-
-DELETE FROM PlayHistory;
-PRINT N'✅ Đã xóa lịch sử chơi game (PlayHistory) để làm sạch dữ liệu cũ.';
-
--- (Tùy chọn) Xóa bảng xếp hạng để tính lại từ đầu cho sách mới
-DELETE FROM LeaderboardEntries;
-PRINT N'✅ Đã reset bảng xếp hạng (LeaderboardEntries).';
-
-
--- 2. XÓA NHÓM CÂU HỎI VÀ GAME (Cấp con)
-DELETE FROM QuestionOptions;
-PRINT N'✅ Đã xóa các lựa chọn đáp án (QuestionOptions).';
-
-DELETE FROM Game_Questions;
-PRINT N'✅ Đã xóa liên kết Game - Câu hỏi (Game_Questions).';
-
-DELETE FROM Questions;
-PRINT N'✅ Đã xóa toàn bộ câu hỏi cũ (Questions).';
-
-
--- 3. Xóa NHÓM KIẾN THỨC (Cấp trung gian)
-DELETE FROM Vocabulary;
-PRINT N'✅ Đã xóa toàn bộ từ vựng cũ (Vocabulary).';
-
-DELETE FROM Grammar;
-PRINT N'✅ Đã xóa toàn bộ ngữ pháp cũ (Grammar).';
-
-DELETE FROM Games;
-PRINT N'✅ Đã xóa các màn chơi cũ (Games).';
-
-
--- 4. XÓA CHỦ ĐỀ (Cấp cha - Root)
-DELETE FROM Topics;
-PRINT N'✅ Đã xóa toàn bộ chủ đề cũ (Topics).';
-
-
--- 5. RESET LẠI BỘ ĐẾM ID (Để dữ liệu Cánh Diều mới bắt đầu từ ID 1 cho đẹp)
-DBCC CHECKIDENT ('Topics', RESEED, 0);
-DBCC CHECKIDENT ('Vocabulary', RESEED, 0);
-DBCC CHECKIDENT ('Grammar', RESEED, 0);
-DBCC CHECKIDENT ('Questions', RESEED, 0);
-DBCC CHECKIDENT ('QuestionOptions', RESEED, 0);
-DBCC CHECKIDENT ('Games', RESEED, 0);
-DBCC CHECKIDENT ('PlayHistory', RESEED, 0);
-PRINT N'✅ Đã reset bộ đếm ID (Identity) về 0.';
-
-PRINT N'=== HOÀN TẤT DỌN DẸP. DATABASE ĐÃ SẴN SÀNG CHO SÁCH CÁNH DIỀU ===';
-GO
-USE GameHocTiengAnh1;
-GO
-
-PRINT N'=== BẮT ĐẦU QUÁ TRÌNH NẠP DỮ LIỆU SÁCH CÁNH DIỀU (EXPLORE OUR WORLD) ===';
-
 -- ==========================================================
--- BƯỚC 1: DỌN DẸP DỮ LIỆU CŨ (RESET)
+--TẠO KHUNG CHỦ ĐỀ CHO CẢ 9 UNIT (0 - 8)
 -- ==========================================================
--- Xóa bảng con trước để tránh lỗi khóa ngoại
-DELETE FROM StudentAnswers;
-DELETE FROM PlayHistory;
-DELETE FROM LeaderboardEntries;
-DELETE FROM QuestionOptions;
-DELETE FROM Game_Questions;
-DELETE FROM Questions;
-
--- Xóa nội dung kiến thức
-DELETE FROM Vocabulary;
-DELETE FROM Grammar;
-DELETE FROM Games;
-DELETE FROM Topics;
-
--- Reset bộ đếm ID về 0 để dữ liệu đẹp
-DBCC CHECKIDENT ('Topics', RESEED, 0);
-DBCC CHECKIDENT ('Vocabulary', RESEED, 0);
-DBCC CHECKIDENT ('Grammar', RESEED, 0);
-GO
-
+-- BƯỚC 2: TẠO KHUNG CHỦ ĐỀ CHO CẢ 9 UNIT (0 - 8) - GẮN VÀO LỚP 5
 -- ==========================================================
--- BƯỚC 2: TẠO KHUNG CHỦ ĐỀ CHO CẢ 9 UNIT (0 - 8)
--- ==========================================================
-INSERT INTO Topics (TopicName) VALUES 
-    (N'Unit 0: Getting Started'),       -- Dựa trên ảnh cũ
-    (N'Unit 1: Animal Habitats'),       -- Dựa trên ảnh cũ
-    (N'Unit 2: Let''s Eat!'),           -- Dựa trên ảnh cũ
-    -- Các Unit dưới đây là TÊN DỰ KIẾN (cần ảnh để xác nhận chính xác tên tiếng Anh)
-    (N'Unit 3: (Chờ cập nhật tên...)'), 
-    (N'Unit 4: (Chờ cập nhật tên...)'),
-    (N'Unit 5: (Chờ cập nhật tên...)'),
-    (N'Unit 6: (Chờ cập nhật tên...)'),
-    (N'Unit 7: (Chờ cập nhật tên...)'),
-    (N'Unit 8: (Chờ cập nhật tên...)');
-GO
+
+-- Lấy ID của Khối 5
+DECLARE @Grade5ID INT = (SELECT GradeID FROM Grades WHERE GradeName = N'Khối 5');
+
+-- Chèn dữ liệu (Bao gồm Tên + GradeID)
+INSERT INTO Topics (TopicName, GradeID) VALUES 
+    (N'Unit 0: Getting Started', @Grade5ID),
+    (N'Unit 1: Animal Habitats', @Grade5ID),
+    (N'Unit 2: Let''s Eat!', @Grade5ID),
+    (N'Unit 3: On the Move!', @Grade5ID),
+    (N'Unit 4: Our Senses', @Grade5ID),
+    (N'Unit 5: Our Health', @Grade5ID),
+    (N'Unit 6: The World of School', @Grade5ID),
+    (N'Unit 7: The World of Work', @Grade5ID),
+    (N'Unit 8: Fantastic Holidays and Festivals', @Grade5ID);
+
 
 -- KHAI BÁO BIẾN ID ĐỂ DÙNG CHO CÁC BƯỚC SAU
 DECLARE @Unit0ID INT = (SELECT TopicID FROM Topics WHERE TopicName LIKE N'Unit 0%');
@@ -701,7 +495,7 @@ INSERT INTO Vocabulary (Word, Meaning, WordType, TopicID) VALUES
 -- GRAMMAR UNIT 1
 INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
     (N'Câu hỏi lựa chọn nơi ở', N'Do [Animals] live in [Place A] or [Place B]?', N'Hỏi xác nhận nơi sống của động vật.', N'Do bees live in hives or nests? They live in hives.', @Unit1ID),
-    (N'Sử dụng bộ phận cơ thể (Use... to)', N'[Animals] use their [Body Part] to [Action].', N'Mô tả chức năng bộ phận cơ thể.', N'Giraffes use their long tongues to clean their ears. Goats use their horns to fight.', @Unit1ID);
+    (N'Sử dụng bộ phận cơ thể (Use... to)', N'[Animals] use their [Body Part] to [Action].', N'Mô tả chức năng bộ phận cơ thể.', N'Giraffes use their long tongues to clean their ears. ats use their horns to fight.', @Unit1ID);
 
 
 PRINT N'--- Đang nạp dữ liệu Unit 2: Let''s Eat ---';
@@ -733,23 +527,15 @@ INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES
 
 PRINT N'=== ĐÃ NẠP XONG UNIT 0, 1, 2 ===';
 PRINT N'=== VUI LÒNG CUNG CẤP ẢNH MỤC LỤC CỦA UNIT 3 ĐẾN 8 ĐỂ TIẾP TỤC ===';
-GO
 
-USE GameHocTiengAnh1;
-GO
 
-PRINT N'=== TIẾP TỤC CẬP NHẬT UNIT 3 ĐẾN UNIT 8 (THEO ẢNH MỚI) ===';
-
--- ==========================================================
--- BƯỚC 1: CẬP NHẬT TÊN CHÍNH XÁC CHO CÁC TOPIC (UNIT 3-8)
--- ==========================================================
 UPDATE Topics SET TopicName = N'Unit 3: On the Move!' WHERE TopicName LIKE N'Unit 3%';
 UPDATE Topics SET TopicName = N'Unit 4: Our Senses' WHERE TopicName LIKE N'Unit 4%';
 UPDATE Topics SET TopicName = N'Unit 5: Our Health' WHERE TopicName LIKE N'Unit 5%';
 UPDATE Topics SET TopicName = N'Unit 6: The World of School' WHERE TopicName LIKE N'Unit 6%';
 UPDATE Topics SET TopicName = N'Unit 7: The World of Work' WHERE TopicName LIKE N'Unit 7%';
 UPDATE Topics SET TopicName = N'Unit 8: Fantastic Holidays and Festivals' WHERE TopicName LIKE N'Unit 8%';
-GO
+
 
 -- KHAI BÁO BIẾN ID ĐỂ DÙNG (Lấy lại ID đã tạo ở bước trước)
 DECLARE @Unit3ID INT = (SELECT TopicID FROM Topics WHERE TopicName LIKE N'Unit 3%');
@@ -785,10 +571,10 @@ INSERT INTO Vocabulary (Word, Meaning, WordType, TopicID) VALUES
 -- Grammar (Hiện tại đơn & Trạng từ tần suất)
 INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
     (N'Hỏi về phương tiện đi lại', 
-     N'Q: Do you go to school by [Vehicle]?
-A: No, I don''t. I go to school [by Vehicle / on foot].', 
+     N'Q: Do you  to school by [Vehicle]?
+A: No, I don''t. I  to school [by Vehicle / on foot].', 
      N'Hỏi cách di chuyển đến trường.', 
-     N'Do you go to school by bus? No, I don''t. I go to school on foot.', @Unit3ID),
+     N'Do you  to school by bus? No, I don''t. I  to school on foot.', @Unit3ID),
     
     (N'Hỏi tần suất (How often)', 
      N'Q: Do you often [Action]?
@@ -881,7 +667,7 @@ INSERT INTO Vocabulary (Word, Meaning, WordType, TopicID) VALUES
     ('art', N'mỹ thuật', 'Noun', @Unit6ID),
     ('computer science', N'tin học', 'Noun', @Unit6ID),
     ('do volunteer work', N'làm tình nguyện', 'Phrase', @Unit6ID),
-    ('go on a field trip', N'đi dã ngoại thực tế', 'Phrase', @Unit6ID),
+    (' on a field trip', N'đi dã nại thực tế', 'Phrase', @Unit6ID),
     ('history', N'lịch sử', 'Noun', @Unit6ID),
     ('join a club', N'tham gia câu lạc bộ', 'Phrase', @Unit6ID),
     ('literature', N'ngữ văn', 'Noun', @Unit6ID),
@@ -906,12 +692,12 @@ A: I had [Subject] on [Day].',
      N'What classes did you have last week? I had math and music. When did you have math? I had math on Tuesday.', @Unit6ID),
     
     (N'Hỏi về chuyến đi quá khứ (Where/Why)', 
-     N'Q: Where did you go [Time]?
+     N'Q: Where did you  [Time]?
 A: I went to [Place].
-Q: Why did you go to the [Place]?
+Q: Why did you  to the [Place]?
 A: We went there to [Purpose].', 
      N'Hỏi địa điểm và lý do đi đâu đó.', 
-     N'Where did you go last summer? I went to a zoo. Why? We went there to learn about animals.', @Unit6ID);
+     N'Where did you  last summer? I went to a zoo. Why? We went there to learn about animals.', @Unit6ID);
 
 
 -- ==========================================================
@@ -979,7 +765,7 @@ INSERT INTO Vocabulary (Word, Meaning, WordType, TopicID) VALUES
 INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
     (N'Hỏi đường (Directions)', 
      N'Q: Could you show me the way to the [Place]?
-A: Sure. Go straight and then turn [left/right]. It''s on your [left/right].', 
+A: Sure.  straight and then turn [left/right]. It''s on your [left/right].', 
      N'Hỏi và chỉ dẫn đường đi.', 
      N'Could you show me the way to the souvenir shop? Turn left on Main Street.', @Unit8ID),
     
@@ -992,10 +778,6 @@ A: I''ll [Action].',
      N'The Mid-Autumn Festival is next week. I''ll light lanterns.', @Unit8ID);
 
 PRINT N'✅ ĐÃ HOÀN TẤT CẬP NHẬT TOÀN BỘ 9 UNIT (0-8) CHO SÁCH CÁNH DIỀU!';
-GO
-
-USE GameHocTiengAnh1;
-GO
 
 PRINT N'=== BẮT ĐẦU TẠO 20 CẶP CÂU HỎI (VOCAB + GRAMMAR) CHO MỖI UNIT ===';
 
@@ -1076,7 +858,7 @@ BEGIN
     -- GRAMMAR (8)
     (@Q_ID, N'{"L": "Where do bees live?", "R": "They live in hives."}', 1),
     (@Q_ID, N'{"L": "Do birds live in caves?", "R": "No, they live in nests."}', 1),
-    (@Q_ID, N'{"L": "Goats use their horns", "R": "to fight."}', 1),
+    (@Q_ID, N'{"L": "ats use their horns", "R": "to fight."}', 1),
     (@Q_ID, N'{"L": "Birds use their beaks", "R": "to catch food."}', 1),
     (@Q_ID, N'{"L": "Giraffes use their tongues", "R": "to clean their ears."}', 1),
     (@Q_ID, N'{"L": "Cats use their claws", "R": "to climb trees."}', 1),
@@ -1142,14 +924,14 @@ BEGIN
     (@Q_ID, N'{"L": "Get on", "R": "Lên xe"}', 1),
     (@Q_ID, N'{"L": "Get off", "R": "Xuống xe"}', 1),
     -- GRAMMAR (8)
-    (@Q_ID, N'{"L": "How do you go to school?", "R": "I go by bus."}', 1),
-    (@Q_ID, N'{"L": "Do you go by car?", "R": "No, I go on foot."}', 1),
+    (@Q_ID, N'{"L": "How do you  to school?", "R": "I  by bus."}', 1),
+    (@Q_ID, N'{"L": "Do you  by car?", "R": "No, I  on foot."}', 1),
     (@Q_ID, N'{"L": "How often do you ride a bike?", "R": "Twice a week."}', 1),
     (@Q_ID, N'{"L": "Does he drive to work?", "R": "Yes, he does."}', 1),
     (@Q_ID, N'{"L": "I ride my scooter", "R": "to the park."}', 1),
     (@Q_ID, N'{"L": "My father drives", "R": "me to school."}', 1),
     (@Q_ID, N'{"L": "We take the ferry", "R": "across the river."}', 1),
-    (@Q_ID, N'{"L": "I never go", "R": "by helicopter."}', 1);
+    (@Q_ID, N'{"L": "I never ", "R": "by helicopter."}', 1);
 END
 
 -- ==========================================================
@@ -1238,7 +1020,7 @@ BEGIN
     (@Q_ID, N'{"L": "Literature", "R": "Ngữ văn"}', 1),
     (@Q_ID, N'{"L": "PE", "R": "Thể dục"}', 1),
     (@Q_ID, N'{"L": "Volunteer", "R": "Tình nguyện"}', 1),
-    (@Q_ID, N'{"L": "Field trip", "R": "Chuyến dã ngoại"}', 1),
+    (@Q_ID, N'{"L": "Field trip", "R": "Chuyến dã nại"}', 1),
     (@Q_ID, N'{"L": "Poster", "R": "Áp phích"}', 1),
     (@Q_ID, N'{"L": "Club", "R": "Câu lạc bộ"}', 1),
     (@Q_ID, N'{"L": "Board games", "R": "Trò chơi bàn cờ"}', 1),
@@ -1246,11 +1028,11 @@ BEGIN
     -- GRAMMAR (8)
     (@Q_ID, N'{"L": "What classes did you have?", "R": "I had Math and Art."}', 1),
     (@Q_ID, N'{"L": "When did you have Music?", "R": "On Tuesday."}', 1),
-    (@Q_ID, N'{"L": "Where did you go?", "R": "I went to the zoo."}', 1),
-    (@Q_ID, N'{"L": "Why did you go there?", "R": "To learn about animals."}', 1),
+    (@Q_ID, N'{"L": "Where did you ?", "R": "I went to the zoo."}', 1),
+    (@Q_ID, N'{"L": "Why did you  there?", "R": "To learn about animals."}', 1),
     (@Q_ID, N'{"L": "I made a poster", "R": "for my project."}', 1),
     (@Q_ID, N'{"L": "We joined", "R": "a science club."}', 1),
-    (@Q_ID, N'{"L": "Did you go on", "R": "a field trip?"}', 1),
+    (@Q_ID, N'{"L": "Did you  on", "R": "a field trip?"}', 1),
     (@Q_ID, N'{"L": "I did volunteer work", "R": "last summer."}', 1);
 END
 
@@ -1313,28 +1095,19 @@ BEGIN
     (@Q_ID, N'{"L": "Tet Holiday", "R": "Tết Nguyên Đán"}', 1),
     -- GRAMMAR (8)
     (@Q_ID, N'{"L": "Show me the way", "R": "to the market."}', 1),
-    (@Q_ID, N'{"L": "Go straight and", "R": "turn left."}', 1),
+    (@Q_ID, N'{"L": " straight and", "R": "turn left."}', 1),
     (@Q_ID, N'{"L": "It is on", "R": "your right."}', 1),
     (@Q_ID, N'{"L": "What will you do?", "R": "I will buy souvenirs."}', 1),
     (@Q_ID, N'{"L": "I will light", "R": "lanterns."}', 1),
     (@Q_ID, N'{"L": "We will watch", "R": "a lion dance."}', 1),
     (@Q_ID, N'{"L": "Mid-Autumn Festival", "R": "is next week."}', 1),
-    (@Q_ID, N'{"L": "Where will you go?", "R": "I will go to the beach."}', 1);
+    (@Q_ID, N'{"L": "Where will you ?", "R": "I will  to the beach."}', 1);
 END
 
-PRINT N'✅ ĐÃ TẠO XONG 180 CẶP CÂU HỎI (20 CẶP x 9 UNIT)!';
-GO
-
-USE GameHocTiengAnh1;
-GO
-
-PRINT N'=== BẮT ĐẦU TẠO 20 CÂU SẮP XẾP (SCRAMBLE) CHO MỖI UNIT ===';
-
--- 1. DỌN DẸP DỮ LIỆU ROUND 2 CŨ
 DELETE FROM QuestionOptions WHERE QuestionID IN (SELECT QuestionID FROM Questions WHERE QuestionType = 'scramble');
 DELETE FROM Questions WHERE QuestionType = 'scramble';
 PRINT N'🧹 Đã dọn dẹp dữ liệu Scramble cũ.';
-
+go
 -- Khai báo biến
 DECLARE @Q_ID INT;
 DECLARE @U0 INT = (SELECT TopicID FROM Topics WHERE TopicName LIKE N'Unit 0%');
@@ -1372,7 +1145,7 @@ BEGIN
     (@Q_ID, N'My birthday is in December', 1),
     (@Q_ID, N'Fifty minus twenty equals thirty', 1),
     (@Q_ID, N'The dry season is very hot', 1),
-    (@Q_ID, N'We often go swimming in summer', 1),
+    (@Q_ID, N'We often  swimming in summer', 1),
     (@Q_ID, N'Leaves fall from trees in autumn', 1),
     (@Q_ID, N'It is cool and windy today', 1),
     (@Q_ID, N'One hundred plus two hundred equals three hundred', 1),
@@ -1394,7 +1167,7 @@ BEGIN
     (@Q_ID, N'Do bees live in hives or nests', 1),
     (@Q_ID, N'They live in hives', 1),
     (@Q_ID, N'Giraffes use their tongues to clean their ears', 1),
-    (@Q_ID, N'Goats use their horns to fight', 1),
+    (@Q_ID, N'ats use their horns to fight', 1),
     (@Q_ID, N'Birds build nests in the trees', 1),
     (@Q_ID, N'Cats use their claws to catch mice', 1),
     (@Q_ID, N'Monkeys live in the forest', 1),
@@ -1453,8 +1226,8 @@ BEGIN
     SET @Q_ID = SCOPE_IDENTITY();
 
     INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
-    (@Q_ID, N'Do you go to school by bus', 1),
-    (@Q_ID, N'No I go to school on foot', 1),
+    (@Q_ID, N'Do you  to school by bus', 1),
+    (@Q_ID, N'No I  to school on foot', 1),
     (@Q_ID, N'My father drives to work', 1),
     (@Q_ID, N'How often do you ride your bike', 1),
     (@Q_ID, N'I ride my bike twice a week', 1),
@@ -1462,8 +1235,8 @@ BEGIN
     (@Q_ID, N'The subway is very fast', 1),
     (@Q_ID, N'Have you ever flown in a helicopter', 1),
     (@Q_ID, N'I ride my scooter in the park', 1),
-    (@Q_ID, N'He goes to school by motorcycle', 1),
-    (@Q_ID, N'We are going to travel by airplane', 1),
+    (@Q_ID, N'He es to school by motorcycle', 1),
+    (@Q_ID, N'We are ing to travel by airplane', 1),
     (@Q_ID, N'Please get on the bus', 1),
     (@Q_ID, N'We get off at the next station', 1),
     (@Q_ID, N'It is safe to walk on the sidewalk', 1),
@@ -1533,7 +1306,7 @@ BEGIN
     (@Q_ID, N'My stomachache is getting worse', 1),
     (@Q_ID, N'I have a runny nose', 1),
     (@Q_ID, N'You should rest your eyes', 1),
-    (@Q_ID, N'Eating vegetables is good for health', 1),
+    (@Q_ID, N'Eating vegetables is od for health', 1),
     (@Q_ID, N'Drink plenty of water', 1),
     (@Q_ID, N'Did you take the medicine', 1),
     (@Q_ID, N'I feel much better now', 1);
@@ -1553,9 +1326,9 @@ BEGIN
     (@Q_ID, N'I had math and literature', 1),
     (@Q_ID, N'When did you have music class', 1),
     (@Q_ID, N'I had music on Tuesday and Thursday', 1),
-    (@Q_ID, N'Where did you go last summer', 1),
+    (@Q_ID, N'Where did you  last summer', 1),
     (@Q_ID, N'I went on a field trip to the zoo', 1),
-    (@Q_ID, N'Why did you go to the zoo', 1),
+    (@Q_ID, N'Why did you  to the zoo', 1),
     (@Q_ID, N'We went there to learn about animals', 1),
     (@Q_ID, N'I joined a science club', 1),
     (@Q_ID, N'We played board games yesterday', 1),
@@ -1614,17 +1387,17 @@ BEGIN
 
     INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
     (@Q_ID, N'Could you show me the way to the market', 1),
-    (@Q_ID, N'Go straight and turn left', 1),
+    (@Q_ID, N' straight and turn left', 1),
     (@Q_ID, N'It is on your right', 1),
     (@Q_ID, N'The Mid Autumn Festival is next week', 1),
     (@Q_ID, N'What will you do there', 1),
     (@Q_ID, N'I will light lanterns', 1),
     (@Q_ID, N'We will watch a lion dance', 1),
-    (@Q_ID, N'I will go to my grandma house', 1),
+    (@Q_ID, N'I will  to my grandma house', 1),
     (@Q_ID, N'We will eat lots of mooncakes', 1),
     (@Q_ID, N'I will wear a costume for Halloween', 1),
     (@Q_ID, N'We will visit a theme park', 1),
-    (@Q_ID, N'I am going to buy souvenirs', 1),
+    (@Q_ID, N'I am ing to buy souvenirs', 1),
     (@Q_ID, N'Where is the waterfall', 1),
     (@Q_ID, N'We will stay at a resort', 1),
     (@Q_ID, N'Children get lucky money at Tet', 1),
@@ -1636,10 +1409,8 @@ BEGIN
 END
 
 PRINT N'✅ ĐÃ TẠO XONG 180 CÂU SẮP XẾP (20 CÂU x 9 UNIT)!';
-GO
 
 USE GameHocTiengAnh1;
-GO
 
 PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 3 (TRẮC NGHIỆM) ===';
 
@@ -1650,7 +1421,7 @@ PRINT N'🧹 Đã xóa câu hỏi trắc nghiệm cũ.';
 
 -- 2. TẠO THỦ TỤC TẠM ĐỂ CHÈN CÂU HỎI NHANH (Giúp code ngắn gọn)
 IF OBJECT_ID('tempdb..#AddQuiz') IS NOT NULL DROP PROCEDURE #AddQuiz;
-GO
+
 
 CREATE PROCEDURE #AddQuiz
     @UnitName NVARCHAR(100), -- Tên Unit (VD: 'Unit 0')
@@ -1680,7 +1451,7 @@ BEGIN
         (@QID, @Wrong3, 0);
     END
 END;
-GO
+
 
 -- ======================================================================================
 -- 3. BẮT ĐẦU NẠP DỮ LIỆU (20 CÂU/UNIT)
@@ -1715,7 +1486,7 @@ EXEC #AddQuiz N'Unit 1', N'Where do polar bears live?', N'In the polar region', 
 EXEC #AddQuiz N'Unit 1', N'Bees live in ______.', N'hives', N'caves', N'nests', N'water';
 EXEC #AddQuiz N'Unit 1', N'Birds use their ______ to fly.', N'wings', N'beaks', N'claws', N'ears';
 EXEC #AddQuiz N'Unit 1', N'Giraffes have very long ______.', N'tongues', N'beaks', N'pouches', N'hives';
-EXEC #AddQuiz N'Unit 1', N'Goats use their horns to ______.', N'fight', N'fly', N'swim', N'sing';
+EXEC #AddQuiz N'Unit 1', N'ats use their horns to ______.', N'fight', N'fly', N'swim', N'sing';
 EXEC #AddQuiz N'Unit 1', N'A kangaroo has a ______.', N'pouch', N'horn', N'beak', N'hive';
 EXEC #AddQuiz N'Unit 1', N'Monkeys live in the ______.', N'forest', N'ocean', N'ice', N'sky';
 EXEC #AddQuiz N'Unit 1', N'Tigers have sharp ______.', N'claws', N'horns', N'pouches', N'wings';
@@ -1756,22 +1527,22 @@ EXEC #AddQuiz N'Unit 2', N'Do you like beans?', N'Yes, I do.', N'Yes, I am.', N'
 
 
 PRINT N'--- Đang nạp Unit 3: On the Move! ---';
-EXEC #AddQuiz N'Unit 3', N'How do you go to school?', N'By bus', N'On bus', N'In bus', N'At bus';
-EXEC #AddQuiz N'Unit 3', N'We go to the park ______ foot.', N'on', N'by', N'in', N'with';
+EXEC #AddQuiz N'Unit 3', N'How do you  to school?', N'By bus', N'On bus', N'In bus', N'At bus';
+EXEC #AddQuiz N'Unit 3', N'We  to the park ______ foot.', N'on', N'by', N'in', N'with';
 EXEC #AddQuiz N'Unit 3', N'Does your father ______ a car?', N'drive', N'ride', N'fly', N'sail';
 EXEC #AddQuiz N'Unit 3', N'I ______ my bike to school.', N'ride', N'drive', N'fly', N'run';
 EXEC #AddQuiz N'Unit 3', N'A ______ flies in the sky.', N'helicopter', N'boat', N'train', N'subway';
 EXEC #AddQuiz N'Unit 3', N'The ______ runs underground.', N'subway', N'bus', N'taxi', N'airplane';
 EXEC #AddQuiz N'Unit 3', N'We took a ______ across the river.', N'ferry', N'bike', N'car', N'train';
-EXEC #AddQuiz N'Unit 3', N'He goes to work ______ motorcycle.', N'by', N'on', N'in', N'at';
+EXEC #AddQuiz N'Unit 3', N'He es to work ______ motorcycle.', N'by', N'on', N'in', N'at';
 EXEC #AddQuiz N'Unit 3', N'______ often do you ride your bike?', N'How', N'What', N'Where', N'When';
 EXEC #AddQuiz N'Unit 3', N'I ride my scooter ______ a week.', N'twice', N'two', N'second', N'twelve';
 EXEC #AddQuiz N'Unit 3', N'Cars must stop at the ______ light.', N'red', N'green', N'yellow', N'blue';
 EXEC #AddQuiz N'Unit 3', N'A pilot flies an ______.', N'airplane', N'bus', N'boat', N'taxi';
-EXEC #AddQuiz N'Unit 3', N'Please ______ on the bus.', N'get', N'go', N'take', N'make';
+EXEC #AddQuiz N'Unit 3', N'Please ______ on the bus.', N'get', N'', N'take', N'make';
 EXEC #AddQuiz N'Unit 3', N'We get ______ the train at the station.', N'off', N'out', N'up', N'down';
 EXEC #AddQuiz N'Unit 3', N'It is safe to walk on the ______.', N'sidewalk', N'street', N'road', N'river';
-EXEC #AddQuiz N'Unit 3', N'Do you ever go by helicopter?', N'No, never.', N'Yes, I am.', N'No, I don''t.', N'Yes, it is.';
+EXEC #AddQuiz N'Unit 3', N'Do you ever  by helicopter?', N'No, never.', N'Yes, I am.', N'No, I don''t.', N'Yes, it is.';
 EXEC #AddQuiz N'Unit 3', N'Boats sail on the ______.', N'water', N'road', N'sky', N'land';
 EXEC #AddQuiz N'Unit 3', N'I like to ______ a boat.', N'row', N'drive', N'ride', N'climb';
 EXEC #AddQuiz N'Unit 3', N'Always wear a ______ on a motorbike.', N'helmet', N'hat', N'cap', N'mask';
@@ -1788,7 +1559,7 @@ EXEC #AddQuiz N'Unit 4', N'The rock felt ______.', N'hard', N'soft', N'quiet', N
 EXEC #AddQuiz N'Unit 4', N'The flowers looked ______.', N'beautiful', N'loud', N'salty', N'hard';
 EXEC #AddQuiz N'Unit 4', N'The lemon tasted ______.', N'sour', N'loud', N'soft', N'quiet';
 EXEC #AddQuiz N'Unit 4', N'Did you ______ the rainbow?', N'see', N'hear', N'smell', N'taste';
-EXEC #AddQuiz N'Unit 4', N'The garbage smelled ______.', N'bad', N'good', N'beautiful', N'soft';
+EXEC #AddQuiz N'Unit 4', N'The garbage smelled ______.', N'bad', N'od', N'beautiful', N'soft';
 EXEC #AddQuiz N'Unit 4', N'The library is very ______.', N'quiet', N'loud', N'spicy', N'hard';
 EXEC #AddQuiz N'Unit 4', N'I can ______ the birds singing.', N'hear', N'smell', N'touch', N'taste';
 EXEC #AddQuiz N'Unit 4', N'This pillow feels ______.', N'soft', N'hard', N'loud', N'sour';
@@ -1796,7 +1567,7 @@ EXEC #AddQuiz N'Unit 4', N'Smoke smells like ______ wood.', N'burnt', N'sweet', 
 EXEC #AddQuiz N'Unit 4', N'Durian has a strong ______.', N'smell', N'sound', N'look', N'feel';
 EXEC #AddQuiz N'Unit 4', N'These chips are too ______.', N'salty', N'loud', N'quiet', N'soft';
 EXEC #AddQuiz N'Unit 4', N'How does the cake taste?', N'It tastes sweet.', N'It sounds sweet.', N'It looks loud.', N'It feels spicy.';
-EXEC #AddQuiz N'Unit 4', N'Did you touch the snake?', N'Yes, it felt cold.', N'Yes, it smelled good.', N'No, it was loud.', N'Yes, it tasted sweet.';
+EXEC #AddQuiz N'Unit 4', N'Did you touch the snake?', N'Yes, it felt cold.', N'Yes, it smelled od.', N'No, it was loud.', N'Yes, it tasted sweet.';
 EXEC #AddQuiz N'Unit 4', N'The watermelon is very ______.', N'juicy', N'dry', N'loud', N'burnt';
 EXEC #AddQuiz N'Unit 4', N'That picture looks ______.', N'ugly', N'loud', N'spicy', N'sour';
 
@@ -1813,14 +1584,14 @@ EXEC #AddQuiz N'Unit 5', N'She ______ a high fever last night.', N'had', N'has',
 EXEC #AddQuiz N'Unit 5', N'You should ______ in bed.', N'rest', N'play', N'run', N'work';
 EXEC #AddQuiz N'Unit 5', N'You should keep your hands ______.', N'clean', N'dirty', N'wet', N'cold';
 EXEC #AddQuiz N'Unit 5', N'Don''t eat too much ______.', N'candy', N'water', N'fruit', N'vegetables';
-EXEC #AddQuiz N'Unit 5', N'You should ______ exercise every day.', N'do', N'make', N'play', N'go';
-EXEC #AddQuiz N'Unit 5', N'My stomachache is getting ______.', N'worse', N'bad', N'good', N'better';
+EXEC #AddQuiz N'Unit 5', N'You should ______ exercise every day.', N'do', N'make', N'play', N'';
+EXEC #AddQuiz N'Unit 5', N'My stomachache is getting ______.', N'worse', N'bad', N'od', N'better';
 EXEC #AddQuiz N'Unit 5', N'I have a ______ nose.', N'runny', N'running', N'rainy', N'sunny';
 EXEC #AddQuiz N'Unit 5', N'You should rest your ______.', N'eyes', N'ears', N'mouth', N'nose';
-EXEC #AddQuiz N'Unit 5', N'Eating vegetables is ______ for health.', N'good', N'bad', N'wrong', N'sick';
+EXEC #AddQuiz N'Unit 5', N'Eating vegetables is ______ for health.', N'od', N'bad', N'wrong', N'sick';
 EXEC #AddQuiz N'Unit 5', N'Drink plenty of ______.', N'water', N'soda', N'oil', N'coffee';
 EXEC #AddQuiz N'Unit 5', N'Did you take the medicine?', N'Yes, I did.', N'Yes, I do.', N'No, I don''t.', N'Yes, I am.';
-EXEC #AddQuiz N'Unit 5', N'I feel much ______ now.', N'better', N'good', N'well', N'bad';
+EXEC #AddQuiz N'Unit 5', N'I feel much ______ now.', N'better', N'od', N'well', N'bad';
 EXEC #AddQuiz N'Unit 5', N'You shouldn''t stay up ______.', N'late', N'early', N'morning', N'noon';
 
 
@@ -1829,9 +1600,9 @@ EXEC #AddQuiz N'Unit 6', N'What ______ did you have last week?', N'classes', N'c
 EXEC #AddQuiz N'Unit 6', N'I ______ math and literature.', N'had', N'have', N'has', N'having';
 EXEC #AddQuiz N'Unit 6', N'______ did you have music class?', N'When', N'Where', N'What', N'Who';
 EXEC #AddQuiz N'Unit 6', N'I had music ______ Tuesday.', N'on', N'in', N'at', N'of';
-EXEC #AddQuiz N'Unit 6', N'Where did you go last summer?', N'I went to the zoo.', N'I go to the zoo.', N'I going to the zoo.', N'I goes to the zoo.';
+EXEC #AddQuiz N'Unit 6', N'Where did you  last summer?', N'I went to the zoo.', N'I  to the zoo.', N'I ing to the zoo.', N'I es to the zoo.';
 EXEC #AddQuiz N'Unit 6', N'I went on a ______ trip.', N'field', N'school', N'class', N'home';
-EXEC #AddQuiz N'Unit 6', N'Why did you go to the zoo?', N'To learn about animals.', N'To buy food.', N'To sleep.', N'To swim.';
+EXEC #AddQuiz N'Unit 6', N'Why did you  to the zoo?', N'To learn about animals.', N'To buy food.', N'To sleep.', N'To swim.';
 EXEC #AddQuiz N'Unit 6', N'I ______ a science club.', N'joined', N'join', N'joins', N'joining';
 EXEC #AddQuiz N'Unit 6', N'We ______ board games yesterday.', N'played', N'play', N'plays', N'playing';
 EXEC #AddQuiz N'Unit 6', N'I made a ______ for my project.', N'poster', N'video', N'book', N'picture';
@@ -1842,7 +1613,7 @@ EXEC #AddQuiz N'Unit 6', N'Physical ______ is my favorite subject.', N'education
 EXEC #AddQuiz N'Unit 6', N'We learned about ______ in History class.', N'the past', N'numbers', N'colors', N'animals';
 EXEC #AddQuiz N'Unit 6', N'Our school is very ______.', N'big', N'tall', N'long', N'short';
 EXEC #AddQuiz N'Unit 6', N'My teacher is very ______.', N'kind', N'angry', N'bad', N'sad';
-EXEC #AddQuiz N'Unit 6', N'We usually ______ sports after school.', N'play', N'do', N'make', N'go';
+EXEC #AddQuiz N'Unit 6', N'We usually ______ sports after school.', N'play', N'do', N'make', N'';
 EXEC #AddQuiz N'Unit 6', N'Did you make a video?', N'Yes, I did.', N'Yes, I do.', N'No, I don''t.', N'Yes, I am.';
 EXEC #AddQuiz N'Unit 6', N'Art is about ______.', N'drawing', N'singing', N'running', N'counting';
 
@@ -1854,13 +1625,13 @@ EXEC #AddQuiz N'Unit 7', N'I will ______ delicious foods.', N'sell', N'buy', N'e
 EXEC #AddQuiz N'Unit 7', N'Why do you like this singer?', N'Because she sings beautifully.', N'Because she runs fast.', N'Because she cooks well.', N'Because she builds houses.';
 EXEC #AddQuiz N'Unit 7', N'A builder ______ houses.', N'builds', N'makes', N'does', N'creates';
 EXEC #AddQuiz N'Unit 7', N'A tailor ______ clothes.', N'makes', N'wears', N'buys', N'sells';
-EXEC #AddQuiz N'Unit 7', N'The athlete runs very ______.', N'fast', N'slow', N'good', N'bad';
+EXEC #AddQuiz N'Unit 7', N'The athlete runs very ______.', N'fast', N'slow', N'od', N'bad';
 EXEC #AddQuiz N'Unit 7', N'A flight attendant works on a ______.', N'plane', N'bus', N'train', N'ship';
 EXEC #AddQuiz N'Unit 7', N'The magician ______ magic tricks.', N'performs', N'plays', N'does', N'makes';
 EXEC #AddQuiz N'Unit 7', N'A mechanic ______ cars.', N'repairs', N'drives', N'rides', N'buys';
 EXEC #AddQuiz N'Unit 7', N'A dentist looks after your ______.', N'teeth', N'eyes', N'ears', N'hands';
 EXEC #AddQuiz N'Unit 7', N'I want to help ______ people.', N'sick', N'healthy', N'rich', N'poor';
-EXEC #AddQuiz N'Unit 7', N'He works very ______.', N'hard', N'hardly', N'good', N'bad';
+EXEC #AddQuiz N'Unit 7', N'He works very ______.', N'hard', N'hardly', N'od', N'bad';
 EXEC #AddQuiz N'Unit 7', N'My mother is a ______.', N'teacher', N'teach', N'teaching', N'taught';
 EXEC #AddQuiz N'Unit 7', N'The musician plays the ______ well.', N'guitar', N'football', N'tennis', N'game';
 EXEC #AddQuiz N'Unit 7', N'A babysitter looks ______ children.', N'after', N'at', N'for', N'up';
@@ -1872,20 +1643,20 @@ EXEC #AddQuiz N'Unit 7', N'An artist paints ______.', N'pictures', N'houses', N'
 
 PRINT N'--- Đang nạp Unit 8: Fantastic Holidays ---';
 EXEC #AddQuiz N'Unit 8', N'Could you show me the way to the ______?', N'market', N'mark', N'marketing', N'marked';
-EXEC #AddQuiz N'Unit 8', N'Go ______ and turn left.', N'straight', N'street', N'long', N'short';
+EXEC #AddQuiz N'Unit 8', N' ______ and turn left.', N'straight', N'street', N'long', N'short';
 EXEC #AddQuiz N'Unit 8', N'It is on your ______.', N'right', N'write', N'white', N'light';
 EXEC #AddQuiz N'Unit 8', N'The Mid-Autumn Festival is next ______.', N'week', N'day', N'month', N'year';
 EXEC #AddQuiz N'Unit 8', N'What ______ you do there?', N'will', N'do', N'did', N'does';
 EXEC #AddQuiz N'Unit 8', N'I will ______ lanterns.', N'light', N'see', N'watch', N'look';
 EXEC #AddQuiz N'Unit 8', N'We will watch a ______ dance.', N'lion', N'tiger', N'cat', N'dog';
-EXEC #AddQuiz N'Unit 8', N'I will go to my grandma''s ______.', N'house', N'home', N'school', N'work';
+EXEC #AddQuiz N'Unit 8', N'I will  to my grandma''s ______.', N'house', N'home', N'school', N'work';
 EXEC #AddQuiz N'Unit 8', N'We will eat lots of ______.', N'mooncakes', N'pizza', N'burgers', N'rice';
 EXEC #AddQuiz N'Unit 8', N'I will wear a ______ for Halloween.', N'costume', N'uniform', N'dress', N'shirt';
 EXEC #AddQuiz N'Unit 8', N'We will visit a ______ park.', N'theme', N'team', N'time', N'term';
-EXEC #AddQuiz N'Unit 8', N'I am going to buy ______.', N'souvenirs', N'gifts', N'presents', N'toys';
+EXEC #AddQuiz N'Unit 8', N'I am ing to buy ______.', N'souvenirs', N'gifts', N'presents', N'toys';
 EXEC #AddQuiz N'Unit 8', N'Where is the ______?', N'waterfall', N'water', N'falling', N'fell';
 EXEC #AddQuiz N'Unit 8', N'We will stay at a ______.', N'resort', N'hotel', N'home', N'house';
-EXEC #AddQuiz N'Unit 8', N'Children get ______ money at Tet.', N'lucky', N'happy', N'good', N'bad';
+EXEC #AddQuiz N'Unit 8', N'Children get ______ money at Tet.', N'lucky', N'happy', N'od', N'bad';
 EXEC #AddQuiz N'Unit 8', N'We clean our house ______ Tet.', N'before', N'after', N'during', N'when';
 EXEC #AddQuiz N'Unit 8', N'Do you like Christmas?', N'Yes, I do.', N'Yes, I am.', N'No, I am not.', N'Yes, it is.';
 EXEC #AddQuiz N'Unit 8', N'We will have a ______ time.', N'great', N'bad', N'sad', N'boring';
@@ -1896,21 +1667,10 @@ EXEC #AddQuiz N'Unit 8', N'I am excited ______ the holidays.', N'for', N'with', 
 DROP PROCEDURE #AddQuiz;
 
 PRINT N'✅ ĐÃ TẠO XONG 180 CÂU TRẮC NGHIỆM (20 CÂU x 9 UNIT)!';
-GO
 
-USE GameHocTiengAnh1;
-GO
 
-PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 4 (ĐIỀN TỪ) ===';
-
--- 1. DỌN DẸP DỮ LIỆU CŨ
-DELETE FROM QuestionOptions WHERE QuestionID IN (SELECT QuestionID FROM Questions WHERE QuestionType = 'fill_in_blank');
-DELETE FROM Questions WHERE QuestionType = 'fill_in_blank';
-PRINT N'🧹 Đã dọn dẹp dữ liệu cũ.';
-
--- 2. TẠO THỦ TỤC TẠM
 IF OBJECT_ID('tempdb..#AddFillBlank') IS NOT NULL DROP PROCEDURE #AddFillBlank;
-GO
+
 
 CREATE PROCEDURE #AddFillBlank
     @UnitName NVARCHAR(100),
@@ -1940,11 +1700,9 @@ BEGIN
         (@QID, @Wrong3, 0);
     END
 END;
-GO
 
--- ======================================================================================
--- 3. NẠP DỮ LIỆU (20 CÂU/UNIT)
--- ======================================================================================
+
+-- NẠP DỮ LIỆU (20 CÂU/UNIT)
 
 PRINT N'--- Unit 0: Getting Started ---';
 EXEC #AddFillBlank N'Unit 0', N'The weather is hot in ______.', N'summer', N'winter', N'spring', N'fall';
@@ -1954,7 +1712,7 @@ EXEC #AddFillBlank N'Unit 0', N'There are twelve ______ in a year.', N'months', 
 EXEC #AddFillBlank N'Unit 0', N'My birthday is ______ May.', N'in', N'on', N'at', N'of';
 EXEC #AddFillBlank N'Unit 0', N'What is the weather ______ today?', N'like', N'is', N'look', N'love';
 EXEC #AddFillBlank N'Unit 0', N'Ten plus ten is ______.', N'twenty', N'thirty', N'ten', N'forty';
-EXEC #AddFillBlank N'Unit 0', N'I like to go swimming in the ______ season.', N'dry', N'rainy', N'cold', N'snowy';
+EXEC #AddFillBlank N'Unit 0', N'I like to  swimming in the ______ season.', N'dry', N'rainy', N'cold', N'snowy';
 EXEC #AddFillBlank N'Unit 0', N'We wear coats when it is ______.', N'cold', N'hot', N'sunny', N'warm';
 EXEC #AddFillBlank N'Unit 0', N'______ is the first month.', N'January', N'February', N'December', N'March';
 EXEC #AddFillBlank N'Unit 0', N'Flowers bloom in ______.', N'spring', N'winter', N'autumn', N'night';
@@ -1986,7 +1744,7 @@ EXEC #AddFillBlank N'Unit 1', N'Tigers have ______ on their bodies.', N'stripes'
 EXEC #AddFillBlank N'Unit 1', N'A ______ moves very slowly.', N'turtle', N'rabbit', N'cat', N'dog';
 EXEC #AddFillBlank N'Unit 1', N'Hippos like to play in the ______.', N'mud', N'sky', N'tree', N'bed';
 EXEC #AddFillBlank N'Unit 1', N'Birds have wings and ______.', N'feathers', N'fur', N'scales', N'skin';
-EXEC #AddFillBlank N'Unit 1', N'Goats have two ______ on their heads.', N'horns', N'tails', N'noses', N'wings';
+EXEC #AddFillBlank N'Unit 1', N'ats have two ______ on their heads.', N'horns', N'tails', N'noses', N'wings';
 EXEC #AddFillBlank N'Unit 1', N'We must ______ the animals.', N'protect', N'hurt', N'hit', N'scare';
 EXEC #AddFillBlank N'Unit 1', N'Sharks live in the ______.', N'ocean', N'river', N'pond', N'pool';
 
@@ -2013,26 +1771,26 @@ EXEC #AddFillBlank N'Unit 2', N'We need a ______ of oil.', N'bottle', N'box', N'
 EXEC #AddFillBlank N'Unit 2', N'Let''s make a ______.', N'cake', N'water', N'milk', N'juice';
 
 PRINT N'--- Unit 3: On the Move! ---';
-EXEC #AddFillBlank N'Unit 3', N'I go to school ______ bus.', N'by', N'on', N'in', N'at';
+EXEC #AddFillBlank N'Unit 3', N'I  to school ______ bus.', N'by', N'on', N'in', N'at';
 EXEC #AddFillBlank N'Unit 3', N'We walk on the ______.', N'sidewalk', N'street', N'road', N'river';
 EXEC #AddFillBlank N'Unit 3', N'My father ______ a car to work.', N'drives', N'rides', N'flies', N'walks';
 EXEC #AddFillBlank N'Unit 3', N'I ______ my bicycle in the park.', N'ride', N'drive', N'run', N'fly';
 EXEC #AddFillBlank N'Unit 3', N'A ______ flies in the sky.', N'plane', N'bus', N'train', N'boat';
 EXEC #AddFillBlank N'Unit 3', N'The ______ runs on tracks.', N'train', N'car', N'bus', N'taxi';
 EXEC #AddFillBlank N'Unit 3', N'We took a ______ across the river.', N'ferry', N'bike', N'scooter', N'truck';
-EXEC #AddFillBlank N'Unit 3', N'You must ______ at the red light.', N'stop', N'go', N'run', N'walk';
+EXEC #AddFillBlank N'Unit 3', N'You must ______ at the red light.', N'stop', N'', N'run', N'walk';
 EXEC #AddFillBlank N'Unit 3', N'Always wear a ______ on a motorbike.', N'helmet', N'hat', N'cap', N'mask';
-EXEC #AddFillBlank N'Unit 3', N'The subway goes ______ ground.', N'under', N'on', N'above', N'in';
+EXEC #AddFillBlank N'Unit 3', N'The subway es ______ ground.', N'under', N'on', N'above', N'in';
 EXEC #AddFillBlank N'Unit 3', N'We get ______ the bus at the station.', N'off', N'out', N'away', N'over';
 EXEC #AddFillBlank N'Unit 3', N'How ______ do you ride your bike?', N'often', N'many', N'much', N'time';
-EXEC #AddFillBlank N'Unit 3', N'I go to school on ______.', N'foot', N'leg', N'hand', N'head';
+EXEC #AddFillBlank N'Unit 3', N'I  to school on ______.', N'foot', N'leg', N'hand', N'head';
 EXEC #AddFillBlank N'Unit 3', N'Boats ______ on water.', N'sail', N'drive', N'ride', N'run';
 EXEC #AddFillBlank N'Unit 3', N'A helicopter has ______ on top.', N'blades', N'wings', N'wheels', N'doors';
 EXEC #AddFillBlank N'Unit 3', N'Is it safe? - Yes, it ______.', N'is', N'isn''t', N'does', N'do';
 EXEC #AddFillBlank N'Unit 3', N'Traffic lights have ______ colors.', N'three', N'two', N'four', N'five';
-EXEC #AddFillBlank N'Unit 3', N'Green light means ______.', N'go', N'stop', N'wait', N'slow';
+EXEC #AddFillBlank N'Unit 3', N'Green light means ______.', N'', N'stop', N'wait', N'slow';
 EXEC #AddFillBlank N'Unit 3', N'I sit ______ the car.', N'in', N'on', N'at', N'under';
-EXEC #AddFillBlank N'Unit 3', N'He goes to work ______ motorcycle.', N'by', N'in', N'with', N'at';
+EXEC #AddFillBlank N'Unit 3', N'He es to work ______ motorcycle.', N'by', N'in', N'with', N'at';
 
 PRINT N'--- Unit 4: Our Senses ---';
 EXEC #AddFillBlank N'Unit 4', N'I use my ______ to see.', N'eyes', N'ears', N'nose', N'mouth';
@@ -2042,7 +1800,7 @@ EXEC #AddFillBlank N'Unit 4', N'The rabbit feels ______.', N'soft', N'hard', N'l
 EXEC #AddFillBlank N'Unit 4', N'The rock feels ______.', N'hard', N'soft', N'sweet', N'sour';
 EXEC #AddFillBlank N'Unit 4', N'The music is too ______.', N'loud', N'soft', N'tasty', N'smelly';
 EXEC #AddFillBlank N'Unit 4', N'The flowers look ______.', N'beautiful', N'ugly', N'loud', N'quiet';
-EXEC #AddFillBlank N'Unit 4', N'The garbage smells ______.', N'bad', N'good', N'nice', N'sweet';
+EXEC #AddFillBlank N'Unit 4', N'The garbage smells ______.', N'bad', N'od', N'nice', N'sweet';
 EXEC #AddFillBlank N'Unit 4', N'The lemon tastes ______.', N'sour', N'salty', N'spicy', N'hot';
 EXEC #AddFillBlank N'Unit 4', N'Did you ______ the thunder?', N'hear', N'smell', N'touch', N'taste';
 EXEC #AddFillBlank N'Unit 4', N'The rainbow looks ______.', N'colorful', N'loud', N'bad', N'tasty';
@@ -2051,7 +1809,7 @@ EXEC #AddFillBlank N'Unit 4', N'Durian has a strong ______.', N'smell', N'sound'
 EXEC #AddFillBlank N'Unit 4', N'Please be ______ in the library.', N'quiet', N'loud', N'noisy', N'fast';
 EXEC #AddFillBlank N'Unit 4', N'I touch with my ______.', N'hands', N'eyes', N'ears', N'nose';
 EXEC #AddFillBlank N'Unit 4', N'The drum sounds ______.', N'loud', N'soft', N'quiet', N'bad';
-EXEC #AddFillBlank N'Unit 4', N'Does it taste good? - Yes, it ______.', N'does', N'is', N'do', N'are';
+EXEC #AddFillBlank N'Unit 4', N'Does it taste od? - Yes, it ______.', N'does', N'is', N'do', N'are';
 EXEC #AddFillBlank N'Unit 4', N'The pillow is ______.', N'soft', N'hard', N'sharp', N'loud';
 EXEC #AddFillBlank N'Unit 4', N'Look ______ the beautiful picture.', N'at', N'in', N'on', N'for';
 EXEC #AddFillBlank N'Unit 4', N'Blind people cannot ______.', N'see', N'hear', N'smell', N'touch';
@@ -2069,9 +1827,9 @@ EXEC #AddFillBlank N'Unit 5', N'Don''t eat too much ______.', N'candy', N'water'
 EXEC #AddFillBlank N'Unit 5', N'You should ______ in bed.', N'rest', N'run', N'jump', N'dance';
 EXEC #AddFillBlank N'Unit 5', N'My tooth hurts. I have a ______.', N'toothache', N'headache', N'backache', N'earache';
 EXEC #AddFillBlank N'Unit 5', N'Drink plenty of ______.', N'water', N'soda', N'coffee', N'tea';
-EXEC #AddFillBlank N'Unit 5', N'Exercise is ______ for you.', N'good', N'bad', N'sad', N'sick';
+EXEC #AddFillBlank N'Unit 5', N'Exercise is ______ for you.', N'od', N'bad', N'sad', N'sick';
 EXEC #AddFillBlank N'Unit 5', N'I ______ feel well.', N'don''t', N'not', N'am', N'isn''t';
-EXEC #AddFillBlank N'Unit 5', N'Did you ______ the medicine?', N'take', N'eat', N'drink', N'go';
+EXEC #AddFillBlank N'Unit 5', N'Did you ______ the medicine?', N'take', N'eat', N'drink', N'';
 EXEC #AddFillBlank N'Unit 5', N'I have a stomachache. My ______ hurts.', N'stomach', N'head', N'leg', N'arm';
 EXEC #AddFillBlank N'Unit 5', N'You look ______.', N'tired', N'tire', N'tiring', N'sleep';
 EXEC #AddFillBlank N'Unit 5', N'You shouldn''t stay up ______.', N'late', N'early', N'morning', N'noon';
@@ -2083,8 +1841,8 @@ EXEC #AddFillBlank N'Unit 6', N'We read books in the ______.', N'library', N'gym
 EXEC #AddFillBlank N'Unit 6', N'I have math ______ Monday.', N'on', N'in', N'at', N'of';
 EXEC #AddFillBlank N'Unit 6', N'My favorite subject is ______.', N'English', N'football', N'game', N'sleep';
 EXEC #AddFillBlank N'Unit 6', N'We play sports in the ______.', N'gym', N'library', N'class', N'lab';
-EXEC #AddFillBlank N'Unit 6', N'I went to the ______ yesterday.', N'zoo', N'go', N'goes', N'going';
-EXEC #AddFillBlank N'Unit 6', N'Did you ______ a video?', N'make', N'do', N'play', N'go';
+EXEC #AddFillBlank N'Unit 6', N'I went to the ______ yesterday.', N'zoo', N'', N'es', N'ing';
+EXEC #AddFillBlank N'Unit 6', N'Did you ______ a video?', N'make', N'do', N'play', N'';
 EXEC #AddFillBlank N'Unit 6', N'I use a ______ in IT class.', N'computer', N'ball', N'book', N'pen';
 EXEC #AddFillBlank N'Unit 6', N'We learn about the past in ______.', N'history', N'math', N'music', N'art';
 EXEC #AddFillBlank N'Unit 6', N'I draw pictures in ______ class.', N'art', N'math', N'PE', N'IT';
@@ -2093,10 +1851,10 @@ EXEC #AddFillBlank N'Unit 6', N'My teacher is very ______.', N'kind', N'bad', N'
 EXEC #AddFillBlank N'Unit 6', N'We wear a ______ at school.', N'uniform', N'costume', N'pyjama', N'hat';
 EXEC #AddFillBlank N'Unit 6', N'I joined a science ______.', N'club', N'class', N'room', N'house';
 EXEC #AddFillBlank N'Unit 6', N'What ______ do you have today?', N'subjects', N'games', N'toys', N'food';
-EXEC #AddFillBlank N'Unit 6', N'I like to ______ the piano.', N'play', N'do', N'make', N'go';
+EXEC #AddFillBlank N'Unit 6', N'I like to ______ the piano.', N'play', N'do', N'make', N'';
 EXEC #AddFillBlank N'Unit 6', N'We eat lunch in the ______.', N'canteen', N'library', N'gym', N'lab';
 EXEC #AddFillBlank N'Unit 6', N'I do my ______ after school.', N'homework', N'housework', N'play', N'sleep';
-EXEC #AddFillBlank N'Unit 6', N'Did you go to school? - Yes, I ______.', N'did', N'do', N'does', N'done';
+EXEC #AddFillBlank N'Unit 6', N'Did you  to school? - Yes, I ______.', N'did', N'do', N'does', N'done';
 EXEC #AddFillBlank N'Unit 6', N'We learn to sing in ______ class.', N'music', N'math', N'art', N'PE';
 EXEC #AddFillBlank N'Unit 6', N'The school year starts in ______.', N'September', N'July', N'May', N'January';
 
@@ -2123,24 +1881,24 @@ EXEC #AddFillBlank N'Unit 7', N'What does your father ______?', N'do', N'be', N'
 EXEC #AddFillBlank N'Unit 7', N'She wants to be a famous ______.', N'singer', N'sing', N'sang', N'song';
 
 PRINT N'--- Unit 8: Fantastic Holidays ---';
-EXEC #AddFillBlank N'Unit 8', N'We will go to the ______.', N'beach', N'school', N'work', N'hospital';
+EXEC #AddFillBlank N'Unit 8', N'We will  to the ______.', N'beach', N'school', N'work', N'hospital';
 EXEC #AddFillBlank N'Unit 8', N'I will ______ my grandma.', N'visit', N'see', N'watch', N'look';
 EXEC #AddFillBlank N'Unit 8', N'We eat ______ cake at Mid-Autumn.', N'moon', N'sun', N'star', N'sky';
 EXEC #AddFillBlank N'Unit 8', N'Children get lucky ______ at Tet.', N'money', N'candy', N'toy', N'book';
 EXEC #AddFillBlank N'Unit 8', N'We will stay at a ______.', N'hotel', N'school', N'shop', N'park';
-EXEC #AddFillBlank N'Unit 8', N'Go ______ and turn left.', N'straight', N'street', N'right', N'back';
+EXEC #AddFillBlank N'Unit 8', N' ______ and turn left.', N'straight', N'street', N'right', N'back';
 EXEC #AddFillBlank N'Unit 8', N'The market is on your ______.', N'right', N'write', N'white', N'light';
 EXEC #AddFillBlank N'Unit 8', N'I will buy some ______.', N'souvenirs', N'money', N'hotel', N'beach';
 EXEC #AddFillBlank N'Unit 8', N'We decorate the house ______ Tet.', N'before', N'after', N'during', N'when';
 EXEC #AddFillBlank N'Unit 8', N'Santa Claus comes at ______.', N'Christmas', N'Tet', N'Easter', N'Halloween';
 EXEC #AddFillBlank N'Unit 8', N'We watch a ______ dance.', N'lion', N'tiger', N'cat', N'dog';
-EXEC #AddFillBlank N'Unit 8', N'I will ______ a sandcastle.', N'build', N'make', N'do', N'go';
-EXEC #AddFillBlank N'Unit 8', N'Where ______ you go?', N'will', N'do', N'did', N'does';
+EXEC #AddFillBlank N'Unit 8', N'I will ______ a sandcastle.', N'build', N'make', N'do', N'';
+EXEC #AddFillBlank N'Unit 8', N'Where ______ you ?', N'will', N'do', N'did', N'does';
 EXEC #AddFillBlank N'Unit 8', N'It will be ______.', N'fun', N'sad', N'bad', N'boring';
 EXEC #AddFillBlank N'Unit 8', N'I wear a ______ for Halloween.', N'costume', N'uniform', N'suit', N'dress';
 EXEC #AddFillBlank N'Unit 8', N'We will swim in the ______.', N'sea', N'sky', N'sand', N'mountain';
 EXEC #AddFillBlank N'Unit 8', N'Happy New ______!', N'Year', N'Day', N'Month', N'Week';
-EXEC #AddFillBlank N'Unit 8', N'I am going to ______ a trip.', N'take', N'do', N'make', N'go';
+EXEC #AddFillBlank N'Unit 8', N'I am ing to ______ a trip.', N'take', N'do', N'make', N'';
 EXEC #AddFillBlank N'Unit 8', N'See you ______ week.', N'next', N'last', N'past', N'before';
 EXEC #AddFillBlank N'Unit 8', N'We travel by ______.', N'plane', N'foot', N'walk', N'run';
 
@@ -2148,10 +1906,6 @@ EXEC #AddFillBlank N'Unit 8', N'We travel by ______.', N'plane', N'foot', N'walk
 DROP PROCEDURE #AddFillBlank;
 
 PRINT N'✅ ĐÃ TẠO XONG 180 CÂU ĐIỀN TỪ (20 CÂU x 9 UNIT)!';
-GO
-
-USE GameHocTiengAnh1; -- Đổi tên DB nếu của bạn khác
-GO
 
 -- Xem toàn bộ lịch sử chơi
 SELECT * FROM PlayHistory ORDER BY PlayedAt DESC;
@@ -2172,20 +1926,2493 @@ VALUES
 (N'Round 2: Scramble', N'Sắp xếp lại câu', 0, 5),            -- Sẽ tự động có GameID = 2
 (N'Round 3: Multiple Choice', N'Trắc nghiệm ABCD', 0, 5),    -- Sẽ tự động có GameID = 3
 (N'Round 4: Fill in Blank', N'Điền từ vào chỗ trống', 0, 5); -- Sẽ tự động có GameID = 4
-GO
+
 
 PRINT N'✅ Đã tạo xong 4 Game Round (ID 1-4).';
+go
 
--- Xóa bảng cũ
--- 1. Xóa ràng buộc kiểm tra giá trị của Stars (CK_Stars_Range)
-ALTER TABLE PlayHistory 
-DROP CONSTRAINT CK_Stars_Range;
+USE GameHocTiengAnh1;
+Go
 
--- 2. Xóa cột Stars
-ALTER TABLE PlayHistory 
-DROP COLUMN Stars;
+PRINT N'=== BẮT ĐẦU NẠP DỮ LIỆU LỚP 2 CÁNH DIỀU (CẤU TRÚC INSERT TƯỜNG MINH - FULL DATA) ===';
 
--- 3. Thêm cột Difficulty (Độ khó)
--- Dùng NVARCHAR(50) để lưu được tiếng Việt hoặc tiếng Anh (Easy, Normal, Hard)
-ALTER TABLE PlayHistory 
-ADD Difficulty NVARCHAR(50);
+-- =================================================================
+-- KHAI BÁO BIẾN ID DÙNG CHUNG CHO TOÀN BỘ SCRIPT
+-- =================================================================
+DECLARE @TopicID INT;
+DECLARE @QuestionID INT;
+
+-- =================================================================
+-- BƯỚC 1: DỌN DẸP DỮ LIỆU CŨ CỦA LỚP 2 (ĐỂ TRÁNH TRÙNG LẶP)
+-- =================================================================
+PRINT N'--- Đang dọn dẹp dữ liệu cũ ---';
+-- Tạo bảng tạm chứa ID các chủ đề cần xóa
+DECLARE @TopicsToDelete TABLE (ID INT);
+INSERT INTO @TopicsToDelete SELECT TopicID FROM Topics WHERE TopicName LIKE N'Lớp 2 (CD)%';
+
+-- Xóa dữ liệu từ bảng con đến bảng cha
+DELETE FROM QuestionOptions WHERE QuestionID IN (SELECT QuestionID FROM Questions WHERE TopicID IN (SELECT ID FROM @TopicsToDelete));
+DELETE FROM Questions WHERE TopicID IN (SELECT ID FROM @TopicsToDelete);
+DELETE FROM Vocabulary WHERE TopicID IN (SELECT ID FROM @TopicsToDelete);
+DELETE FROM Grammar WHERE TopicID IN (SELECT ID FROM @TopicsToDelete);
+DELETE FROM Topics WHERE TopicID IN (SELECT ID FROM @TopicsToDelete);
+
+PRINT N'✅ Đã dọn dẹp xong. Bắt đầu nạp dữ liệu mới...';
+
+
+-- =================================================================
+-- BƯỚC 2: NẠP DỮ LIỆU CHI TIẾT TỪNG UNIT
+-- =================================================================
+
+-- #################################################################
+-- UNIT 0: GETTING STARTED
+-- #################################################################
+PRINT N'--- Nạp Unit 0 ---';
+INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 2 (CD) - Unit 0: Getting Started',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- === ROUND 1: MATCHING (Nối từ) ===
+-- Tạo 1 câu hỏi "container"
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) 
+VALUES (@TopicID, N'Nối từ vựng với nghĩa Tiếng Việt', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+
+-- Chèn các cặp từ vào QuestionOptions
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Hello", "R": "Xin chào"}', 1),
+(@QuestionID, N'{"L": "Hi", "R": "Chào (thân mật)"}', 1),
+(@QuestionID, N'{"L": "odbye", "R": "Tạm biệt"}', 1),
+(@QuestionID, N'{"L": "Bye", "R": "Tạm biệt (ngắn)"}', 1),
+(@QuestionID, N'{"L": "Teacher", "R": "Giáo viên"}', 1),
+(@QuestionID, N'{"L": "Class", "R": "Cả lớp"}', 1),
+(@QuestionID, N'{"L": "Stand up", "R": "Đứng lên"}', 1),
+(@QuestionID, N'{"L": "Sit down", "R": "Ngồi xuống"}', 1),
+(@QuestionID, N'{"L": "Listen", "R": "Lắng nghe"}', 1),
+(@QuestionID, N'{"L": "Open", "R": "Mở ra"}', 1),
+(@QuestionID, N'{"L": "Close", "R": "Đóng lại"}', 1),
+(@QuestionID, N'{"L": "One", "R": "Số 1"}', 1),
+(@QuestionID, N'{"L": "Two", "R": "Số 2"}', 1),
+(@QuestionID, N'{"L": "Three", "R": "Số 3"}', 1),
+(@QuestionID, N'{"L": "Four", "R": "Số 4"}', 1),
+(@QuestionID, N'{"L": "Five", "R": "Số 5"}', 1),
+(@QuestionID, N'{"L": "Six", "R": "Số 6"}', 1),
+(@QuestionID, N'{"L": "Seven", "R": "Số 7"}', 1),
+(@QuestionID, N'{"L": "Eight", "R": "Số 8"}', 1),
+(@QuestionID, N'{"L": "Nine", "R": "Số 9"}', 1),
+(@QuestionID, N'{"L": "Ten", "R": "Số 10"}', 1),
+(@QuestionID, N'{"L": "Red", "R": "Màu đỏ"}', 1),
+(@QuestionID, N'{"L": "Blue", "R": "Màu xanh dương"}', 1),
+(@QuestionID, N'{"L": "Yellow", "R": "Màu vàng"}', 1),
+(@QuestionID, N'{"L": "Green", "R": "Màu xanh lá"}', 1),
+(@QuestionID, N'{"L": "Black", "R": "Màu đen"}', 1),
+(@QuestionID, N'{"L": "White", "R": "Màu trắng"}', 1);
+
+
+-- === ROUND 2: SCRAMBLE (Sắp xếp câu) ===
+-- Tạo 1 câu hỏi "container"
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) 
+VALUES (@TopicID, N'Sắp xếp các từ thành câu hoàn chỉnh', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+
+-- Chèn các câu cần sắp xếp vào QuestionOptions
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'Hello I am Kim', 1),
+(@QuestionID, N'My name is Min', 1),
+(@QuestionID, N'How are you', 1),
+(@QuestionID, N'I am fine thank you', 1),
+(@QuestionID, N'Stand up please', 1),
+(@QuestionID, N'Sit down please', 1),
+(@QuestionID, N'Open your book', 1),
+(@QuestionID, N'Close your book', 1),
+(@QuestionID, N'It is red', 1),
+(@QuestionID, N'It is number one', 1),
+(@QuestionID, N'I like blue', 1),
+(@QuestionID, N'odbye teacher', 1),
+(@QuestionID, N'See you later', 1),
+(@QuestionID, N'What is your name', 1),
+(@QuestionID, N'Listen to me', 1),
+(@QuestionID, N'Hands up', 1),
+(@QuestionID, N'Hands down', 1),
+(@QuestionID, N'Be quiet please', 1),
+(@QuestionID, N'I am seven years old', 1),
+(@QuestionID, N'Nice to meet you', 1);
+
+
+-- === ROUND 3: QUIZ (Trắc nghiệm) ===
+-- Mỗi câu hỏi là một lần INSERT Questions và 4 lần INSERT Options
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'How are you?', 'multiple_choice', N'I am fine.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'I am fine.', 1), (@QuestionID, N'I am five.', 0), (@QuestionID, N'Hello.', 0), (@QuestionID, N'Bye.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What is it? (Image: Red)', 'multiple_choice', N'Red');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Red', 1), (@QuestionID, N'Blue', 0), (@QuestionID, N'One', 0), (@QuestionID, N'Two', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ up, please.', 'multiple_choice', N'Stand');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Stand', 1), (@QuestionID, N'Sit', 0), (@QuestionID, N'', 0), (@QuestionID, N'Do', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Hello, I ______ Lan.', 'multiple_choice', N'am');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'am', 1), (@QuestionID, N'is', 0), (@QuestionID, N'are', 0), (@QuestionID, N'it', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What number is it? (5)', 'multiple_choice', N'Five');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Five', 1), (@QuestionID, N'Four', 0), (@QuestionID, N'Six', 0), (@QuestionID, N'One', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sit ______.', 'multiple_choice', N'down');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'down', 1), (@QuestionID, N'up', 0), (@QuestionID, N'in', 0), (@QuestionID, N'on', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What color is the sun?', 'multiple_choice', N'Yellow');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yellow', 1), (@QuestionID, N'Green', 0), (@QuestionID, N'Black', 0), (@QuestionID, N'Purple', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Bye. See you ______.', 'multiple_choice', N'later');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'later', 1), (@QuestionID, N'now', 0), (@QuestionID, N'hello', 0), (@QuestionID, N'fine', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'One plus one is ______.', 'multiple_choice', N'two');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'two', 1), (@QuestionID, N'one', 0), (@QuestionID, N'three', 0), (@QuestionID, N'four', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I like ______ (màu đỏ).', 'multiple_choice', N'red');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'red', 1), (@QuestionID, N'bed', 0), (@QuestionID, N'fed', 0), (@QuestionID, N'blue', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What number is it? (1)', 'multiple_choice', N'One');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'One', 1), (@QuestionID, N'Two', 0), (@QuestionID, N'Three', 0), (@QuestionID, N'Ten', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What number is it? (3)', 'multiple_choice', N'Three');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Three', 1), (@QuestionID, N'Tree', 0), (@QuestionID, N'Free', 0), (@QuestionID, N'Ten', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is it red?', 'multiple_choice', N'Yes, it is.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, it is.', 1), (@QuestionID, N'Yes, I am.', 0), (@QuestionID, N'No, I am not.', 0), (@QuestionID, N'I like red.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'odbye ______.', 'multiple_choice', N'teacher');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'teacher', 1), (@QuestionID, N'book', 0), (@QuestionID, N'pen', 0), (@QuestionID, N'bag', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nice to ______ you.', 'multiple_choice', N'meet');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'meet', 1), (@QuestionID, N'meat', 0), (@QuestionID, N'met', 0), (@QuestionID, N'see', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'How ______ are you?', 'multiple_choice', N'old');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'old', 1), (@QuestionID, N'are', 0), (@QuestionID, N'is', 0), (@QuestionID, N'am', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I am ______ (6) years old.', 'multiple_choice', N'six');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'six', 1), (@QuestionID, N'seven', 0), (@QuestionID, N'five', 0), (@QuestionID, N'one', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is the color ______ (đen).', 'multiple_choice', N'black');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'black', 1), (@QuestionID, N'white', 0), (@QuestionID, N'red', 0), (@QuestionID, N'blue', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What color is the sky?', 'multiple_choice', N'Blue');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Blue', 1), (@QuestionID, N'Green', 0), (@QuestionID, N'Red', 0), (@QuestionID, N'Yellow', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ your book.', 'multiple_choice', N'Open');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Open', 1), (@QuestionID, N'Stand', 0), (@QuestionID, N'Sit', 0), (@QuestionID, N'', 0);
+
+
+-- === ROUND 4: FILL IN BLANK (Điền từ) ===
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Stand ______.', 'fill_in_blank', N'up');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'up', 1), (@QuestionID, N'down', 0), (@QuestionID, N'in', 0), (@QuestionID, N'on', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sit ______.', 'fill_in_blank', N'down');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'down', 1), (@QuestionID, N'up', 0), (@QuestionID, N'left', 0), (@QuestionID, N'right', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My name ______ Lan.', 'fill_in_blank', N'is');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'is', 1), (@QuestionID, N'am', 0), (@QuestionID, N'are', 0), (@QuestionID, N'be', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I ______ fine.', 'fill_in_blank', N'am');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'am', 1), (@QuestionID, N'is', 0), (@QuestionID, N'are', 0), (@QuestionID, N'be', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is ______ (màu xanh).', 'fill_in_blank', N'blue');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'blue', 1), (@QuestionID, N'red', 0), (@QuestionID, N'one', 0), (@QuestionID, N'two', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is number ______ (3).', 'fill_in_blank', N'three');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'three', 1), (@QuestionID, N'tree', 0), (@QuestionID, N'free', 0), (@QuestionID, N'there', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ teacher.', 'fill_in_blank', N'odbye');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'odbye', 1), (@QuestionID, N'od', 0), (@QuestionID, N'Hello', 0), (@QuestionID, N'Hi', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Open your ______.', 'fill_in_blank', N'book');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'book', 1), (@QuestionID, N'hook', 0), (@QuestionID, N'look', 0), (@QuestionID, N'cook', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Close your ______.', 'fill_in_blank', N'book');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'book', 1), (@QuestionID, N'pen', 0), (@QuestionID, N'bag', 0), (@QuestionID, N'hand', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I am ______ (7) years old.', 'fill_in_blank', N'seven');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'seven', 1), (@QuestionID, N'six', 0), (@QuestionID, N'eight', 0), (@QuestionID, N'nine', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What ______ is it? - Red.', 'fill_in_blank', N'color');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'color', 1), (@QuestionID, N'name', 0), (@QuestionID, N'time', 0), (@QuestionID, N'day', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nice to ______ you.', 'fill_in_blank', N'meet');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'meet', 1), (@QuestionID, N'see', 0), (@QuestionID, N'look', 0), (@QuestionID, N'watch', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ hands.', 'fill_in_blank', N'Clap');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Clap', 1), (@QuestionID, N'Tap', 0), (@QuestionID, N'Nap', 0), (@QuestionID, N'Lap', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ to me.', 'fill_in_blank', N'Listen');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Listen', 1), (@QuestionID, N'Look', 0), (@QuestionID, N'Hear', 0), (@QuestionID, N'See', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is number ______ (5).', 'fill_in_blank', N'five');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'five', 1), (@QuestionID, N'four', 0), (@QuestionID, N'six', 0), (@QuestionID, N'one', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ are you? - I am fine.', 'fill_in_blank', N'How');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'How', 1), (@QuestionID, N'What', 0), (@QuestionID, N'Who', 0), (@QuestionID, N'Where', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is ______ (màu vàng).', 'fill_in_blank', N'yellow');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'yellow', 1), (@QuestionID, N'red', 0), (@QuestionID, N'blue', 0), (@QuestionID, N'black', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ me. (Nhìn tớ này)', 'fill_in_blank', N'Look');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Look', 1), (@QuestionID, N'Watch', 0), (@QuestionID, N'See', 0), (@QuestionID, N'Listen', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I like ______ (màu xanh lá).', 'fill_in_blank', N'green');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'green', 1), (@QuestionID, N'blue', 0), (@QuestionID, N'red', 0), (@QuestionID, N'black', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is it red? - No, it ______.', 'fill_in_blank', N'isn''t');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'isn''t', 1), (@QuestionID, N'is', 0), (@QuestionID, N'not', 0), (@QuestionID, N'aren''t', 0);
+
+
+
+-- #################################################################
+-- UNIT 1: MY CLASSROOM
+-- #################################################################
+PRINT N'--- Nạp Unit 1 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 1: My Classroom',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) 
+VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Pencil", "R": "Bút chì"}', 1),
+(@QuestionID, N'{"L": "Pen", "R": "Bút mực"}', 1),
+(@QuestionID, N'{"L": "Crayon", "R": "Bút sáp"}', 1),
+(@QuestionID, N'{"L": "Bag", "R": "Cặp sách"}', 1),
+(@QuestionID, N'{"L": "Book", "R": "Sách"}', 1),
+(@QuestionID, N'{"L": "Notebook", "R": "Vở"}', 1),
+(@QuestionID, N'{"L": "Eraser", "R": "Tẩy"}', 1),
+(@QuestionID, N'{"L": "Ruler", "R": "Thước kẻ"}', 1),
+(@QuestionID, N'{"L": "Desk", "R": "Bàn học"}', 1),
+(@QuestionID, N'{"L": "Chair", "R": "Ghế"}', 1),
+(@QuestionID, N'{"L": "Board", "R": "Bảng"}', 1),
+(@QuestionID, N'{"L": "Door", "R": "Cửa ra vào"}', 1),
+(@QuestionID, N'{"L": "Window", "R": "Cửa sổ"}', 1),
+(@QuestionID, N'{"L": "Pencil case", "R": "Hộp bút"}', 1),
+(@QuestionID, N'{"L": "Backpack", "R": "Ba lô"}', 1),
+(@QuestionID, N'{"L": "Computer", "R": "Máy tính"}', 1),
+(@QuestionID, N'{"L": "Picture", "R": "Tranh"}', 1),
+(@QuestionID, N'{"L": "Marker", "R": "Bút dạ"}', 1),
+(@QuestionID, N'{"L": "Glue", "R": "Keo dán"}', 1),
+(@QuestionID, N'{"L": "Scissors", "R": "Kéo"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) 
+VALUES (@TopicID, N'Sắp xếp các từ thành câu hoàn chỉnh', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'It is a pencil', 1),
+(@QuestionID, N'This is my bag', 1),
+(@QuestionID, N'What is it', 1),
+(@QuestionID, N'Is it a book', 1),
+(@QuestionID, N'Yes it is', 1),
+(@QuestionID, N'No it is not', 1),
+(@QuestionID, N'Open the door', 1),
+(@QuestionID, N'Close the window', 1),
+(@QuestionID, N'Sit on the chair', 1),
+(@QuestionID, N'Look at the board', 1),
+(@QuestionID, N'It is an eraser', 1),
+(@QuestionID, N'I have a pen', 1),
+(@QuestionID, N'This is my desk', 1),
+(@QuestionID, N'Is it a ruler', 1),
+(@QuestionID, N'My bag is blue', 1),
+(@QuestionID, N'My book is red', 1),
+(@QuestionID, N'I like my school', 1),
+(@QuestionID, N'It is a crayon', 1),
+(@QuestionID, N'Where is my pen', 1),
+(@QuestionID, N'The pencil is yellow', 1);
+
+-- QUIZ
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What is it? (Pen)', 'multiple_choice', N'It is a pen.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'It is a pen.', 1), (@QuestionID, N'It is a bag.', 0), (@QuestionID, N'It is a dog.', 0), (@QuestionID, N'It is a cat.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is it a ruler?', 'multiple_choice', N'Yes, it is.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, it is.', 1), (@QuestionID, N'Yes, I do.', 0), (@QuestionID, N'No, I am not.', 0), (@QuestionID, N'I like rulers.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I sit on a ______.', 'multiple_choice', N'chair');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'chair', 1), (@QuestionID, N'desk', 0), (@QuestionID, N'board', 0), (@QuestionID, N'book', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is an ______ (cục tẩy).', 'multiple_choice', N'eraser');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'eraser', 1), (@QuestionID, N'pencil', 0), (@QuestionID, N'book', 0), (@QuestionID, N'ruler', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Open your ______.', 'multiple_choice', N'book');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'book', 1), (@QuestionID, N'pencil', 0), (@QuestionID, N'ruler', 0), (@QuestionID, N'chair', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What color is the bag?', 'multiple_choice', N'It is green.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'It is green.', 1), (@QuestionID, N'It is one.', 0), (@QuestionID, N'Yes, it is.', 0), (@QuestionID, N'It is a bag.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is this a bag?', 'multiple_choice', N'Yes, it is.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, it is.', 1), (@QuestionID, N'No, it is.', 0), (@QuestionID, N'Yes, I am.', 0), (@QuestionID, N'It is red.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ the door.', 'multiple_choice', N'Open');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Open', 1), (@QuestionID, N'Stand', 0), (@QuestionID, N'Sit', 0), (@QuestionID, N'Look', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ at the board.', 'multiple_choice', N'Look');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Look', 1), (@QuestionID, N'See', 0), (@QuestionID, N'Watch', 0), (@QuestionID, N'Listen', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What is this? (Desk)', 'multiple_choice', N'It is a desk.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'It is a desk.', 1), (@QuestionID, N'It is a chair.', 0), (@QuestionID, N'It is a board.', 0), (@QuestionID, N'It is a pen.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My bag is ______ (màu vàng).', 'multiple_choice', N'yellow');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'yellow', 1), (@QuestionID, N'red', 0), (@QuestionID, N'blue', 0), (@QuestionID, N'green', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is it a crayon? - No, it ______.', 'multiple_choice', N'is not');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'is not', 1), (@QuestionID, N'is', 0), (@QuestionID, N'are', 0), (@QuestionID, N'am', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (trường học).', 'multiple_choice', N'school');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'school', 1), (@QuestionID, N'class', 0), (@QuestionID, N'bag', 0), (@QuestionID, N'desk', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I have a ______ (thước kẻ).', 'multiple_choice', N'ruler');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'ruler', 1), (@QuestionID, N'rubber', 0), (@QuestionID, N'pencil', 0), (@QuestionID, N'pen', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Close the ______.', 'multiple_choice', N'window');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'window', 1), (@QuestionID, N'desk', 0), (@QuestionID, N'chair', 0), (@QuestionID, N'pencil', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What color is the pencil?', 'multiple_choice', N'It is blue.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'It is blue.', 1), (@QuestionID, N'It is a pen.', 0), (@QuestionID, N'Yes, it is.', 0), (@QuestionID, N'No, it is not.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is this a board?', 'multiple_choice', N'Yes, it is.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, it is.', 1), (@QuestionID, N'It is big.', 0), (@QuestionID, N'I like it.', 0), (@QuestionID, N'No, I don''t.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sit ______ the chair.', 'multiple_choice', N'on');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'on', 1), (@QuestionID, N'in', 0), (@QuestionID, N'at', 0), (@QuestionID, N'to', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is a ______ (bức tranh).', 'multiple_choice', N'picture');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'picture', 1), (@QuestionID, N'book', 0), (@QuestionID, N'board', 0), (@QuestionID, N'door', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I put my book in my ______.', 'multiple_choice', N'bag');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'bag', 1), (@QuestionID, N'desk', 0), (@QuestionID, N'chair', 0), (@QuestionID, N'pencil', 0);
+
+-- FILL BLANK
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is ______ eraser.', 'fill_in_blank', N'an');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'an', 1), (@QuestionID, N'a', 0), (@QuestionID, N'two', 0), (@QuestionID, N'some', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (cặp sách).', 'fill_in_blank', N'bag');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'bag', 1), (@QuestionID, N'bat', 0), (@QuestionID, N'bad', 0), (@QuestionID, N'bug', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is it a book? - Yes, it ______.', 'fill_in_blank', N'is');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'is', 1), (@QuestionID, N'isn''t', 0), (@QuestionID, N'are', 0), (@QuestionID, N'not', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I write on a ______.', 'fill_in_blank', N'desk');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'desk', 1), (@QuestionID, N'chair', 0), (@QuestionID, N'bag', 0), (@QuestionID, N'floor', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ is it? - It is a pen.', 'fill_in_blank', N'What');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'What', 1), (@QuestionID, N'Who', 0), (@QuestionID, N'Where', 0), (@QuestionID, N'How', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is a ______ (bút chì).', 'fill_in_blank', N'pencil');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'pencil', 1), (@QuestionID, N'pen', 0), (@QuestionID, N'cil', 0), (@QuestionID, N'book', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ the door.', 'fill_in_blank', N'Open');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Open', 1), (@QuestionID, N'Sit', 0), (@QuestionID, N'Stand', 0), (@QuestionID, N'Look', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'______ the window.', 'fill_in_blank', N'Close');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Close', 1), (@QuestionID, N'Open', 0), (@QuestionID, N'Look', 0), (@QuestionID, N'See', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is a ______ (thước kẻ).', 'fill_in_blank', N'ruler');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'ruler', 1), (@QuestionID, N'rubber', 0), (@QuestionID, N'run', 0), (@QuestionID, N'rule', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is a ______ (cái ghế).', 'fill_in_blank', N'chair');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'chair', 1), (@QuestionID, N'hair', 0), (@QuestionID, N'air', 0), (@QuestionID, N'care', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Look at the ______ (bảng).', 'fill_in_blank', N'board');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'board', 1), (@QuestionID, N'boat', 0), (@QuestionID, N'boar', 0), (@QuestionID, N'book', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is it a pen? - No, it ______.', 'fill_in_blank', N'is not');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'is not', 1), (@QuestionID, N'is', 0), (@QuestionID, N'are', 0), (@QuestionID, N'am', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My bag is ______ (màu đỏ).', 'fill_in_blank', N'red');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'red', 1), (@QuestionID, N'read', 0), (@QuestionID, N'bed', 0), (@QuestionID, N'led', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I have a ______ (bút sáp).', 'fill_in_blank', N'crayon');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'crayon', 1), (@QuestionID, N'clay', 0), (@QuestionID, N'car', 0), (@QuestionID, N'cat', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'It is my ______ (sách).', 'fill_in_blank', N'book');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'book', 1), (@QuestionID, N'look', 0), (@QuestionID, N'cook', 0), (@QuestionID, N'hook', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sit on the ______.', 'fill_in_blank', N'chair');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'chair', 1), (@QuestionID, N'desk', 0), (@QuestionID, N'table', 0), (@QuestionID, N'floor', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'The pencil is ______ (màu vàng).', 'fill_in_blank', N'yellow');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'yellow', 1), (@QuestionID, N'blue', 0), (@QuestionID, N'red', 0), (@QuestionID, N'green', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is ______ eraser.', 'fill_in_blank', N'an');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'an', 1), (@QuestionID, N'a', 0), (@QuestionID, N'the', 0), (@QuestionID, N'one', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is this your ______ (hộp bút)?', 'fill_in_blank', N'pencil case');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'pencil case', 1), (@QuestionID, N'bag', 0), (@QuestionID, N'book', 0), (@QuestionID, N'pen', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I  to ______ (trường học).', 'fill_in_blank', N'school');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'school', 1), (@QuestionID, N'home', 0), (@QuestionID, N'zoo', 0), (@QuestionID, N'park', 0);
+
+
+
+-- #################################################################
+-- UNIT 2: MY FAMILY
+-- #################################################################
+PRINT N'--- Nạp Unit 2 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 2: My Family',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) 
+VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Dad", "R": "Bố"}', 1),
+(@QuestionID, N'{"L": "Mom", "R": "Mẹ"}', 1),
+(@QuestionID, N'{"L": "Grandma", "R": "Bà"}', 1),
+(@QuestionID, N'{"L": "Grandpa", "R": "Ông"}', 1),
+(@QuestionID, N'{"L": "Brother", "R": "Anh/Em trai"}', 1),
+(@QuestionID, N'{"L": "Sister", "R": "Chị/Em gái"}', 1),
+(@QuestionID, N'{"L": "Baby", "R": "Em bé"}', 1),
+(@QuestionID, N'{"L": "Uncle", "R": "Chú/Bác"}', 1),
+(@QuestionID, N'{"L": "Aunt", "R": "Cô/Dì"}', 1),
+(@QuestionID, N'{"L": "Cousin", "R": "Anh chị em họ"}', 1),
+(@QuestionID, N'{"L": "Family", "R": "Gia đình"}', 1),
+(@QuestionID, N'{"L": "Parents", "R": "Bố mẹ"}', 1),
+(@QuestionID, N'{"L": "Grandparents", "R": "Ông bà"}', 1),
+(@QuestionID, N'{"L": "Man", "R": "Người đàn ông"}', 1),
+(@QuestionID, N'{"L": "Woman", "R": "Người phụ nữ"}', 1),
+(@QuestionID, N'{"L": "Boy", "R": "Bé trai"}', 1),
+(@QuestionID, N'{"L": "Girl", "R": "Bé gái"}', 1),
+(@QuestionID, N'{"L": "Love", "R": "Yêu thương"}', 1),
+(@QuestionID, N'{"L": "Photo", "R": "Bức ảnh"}', 1),
+(@QuestionID, N'{"L": "Who", "R": "Ai"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) 
+VALUES (@TopicID, N'Sắp xếp các từ thành câu hoàn chỉnh', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'This is my mom', 1),
+(@QuestionID, N'Who is this', 1),
+(@QuestionID, N'I love my family', 1),
+(@QuestionID, N'Is this your dad', 1),
+(@QuestionID, N'She is my sister', 1),
+(@QuestionID, N'He is my brother', 1),
+(@QuestionID, N'My grandma is kind', 1),
+(@QuestionID, N'This is my baby brother', 1),
+(@QuestionID, N'My grandpa is old', 1),
+(@QuestionID, N'Do you have a sister', 1),
+(@QuestionID, N'Yes I do', 1),
+(@QuestionID, N'No I do not', 1),
+(@QuestionID, N'That is my uncle', 1),
+(@QuestionID, N'I have two brothers', 1),
+(@QuestionID, N'She is a baby', 1),
+(@QuestionID, N'My dad is tall', 1),
+(@QuestionID, N'My mom is beautiful', 1),
+(@QuestionID, N'This is my cousin', 1),
+(@QuestionID, N'Who is he', 1),
+(@QuestionID, N'Who is she', 1);
+
+-- QUIZ
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who is this?', 'multiple_choice', N'This is my dad.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'This is my dad.', 1), (@QuestionID, N'It is a pen.', 0), (@QuestionID, N'I am fine.', 0), (@QuestionID, N'Yes, it is.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is this your sister?', 'multiple_choice', N'Yes, it is.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, it is.', 1), (@QuestionID, N'Yes, I am.', 0), (@QuestionID, N'No, I don''t.', 0), (@QuestionID, N'She is happy.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My father''s father is my ______.', 'multiple_choice', N'grandpa');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'grandpa', 1), (@QuestionID, N'grandma', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'uncle', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (em bé).', 'multiple_choice', N'baby');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'baby', 1), (@QuestionID, N'babies', 0), (@QuestionID, N'boy', 0), (@QuestionID, N'girl', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I love my ______.', 'multiple_choice', N'family');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'family', 1), (@QuestionID, N'pen', 0), (@QuestionID, N'bag', 0), (@QuestionID, N'desk', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (bà).', 'multiple_choice', N'grandma');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'grandma', 1), (@QuestionID, N'grandpa', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'mom', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'He is my ______ (anh trai).', 'multiple_choice', N'brother');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'brother', 1), (@QuestionID, N'sister', 0), (@QuestionID, N'mom', 0), (@QuestionID, N'dad', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who is he?', 'multiple_choice', N'He is my uncle.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'He is my uncle.', 1), (@QuestionID, N'She is my aunt.', 0), (@QuestionID, N'It is a dog.', 0), (@QuestionID, N'I am fine.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is that your mom?', 'multiple_choice', N'No, it is my aunt.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'No, it is my aunt.', 1), (@QuestionID, N'Yes, I am.', 0), (@QuestionID, N'No, I don''t.', 0), (@QuestionID, N'It is red.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My mom''s sister is my ______.', 'multiple_choice', N'aunt');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'aunt', 1), (@QuestionID, N'uncle', 0), (@QuestionID, N'grandma', 0), (@QuestionID, N'sister', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (chị họ).', 'multiple_choice', N'cousin');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'cousin', 1), (@QuestionID, N'brother', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'grandpa', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I have a ______ (em gái).', 'multiple_choice', N'sister');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'sister', 1), (@QuestionID, N'brother', 0), (@QuestionID, N'baby', 0), (@QuestionID, N'dad', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is your dad tall?', 'multiple_choice', N'Yes, he is.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, he is.', 1), (@QuestionID, N'Yes, she is.', 0), (@QuestionID, N'No, she isn''t.', 0), (@QuestionID, N'Yes, it is.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is a picture of my ______.', 'multiple_choice', N'family');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'family', 1), (@QuestionID, N'class', 0), (@QuestionID, N'school', 0), (@QuestionID, N'bag', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who is she?', 'multiple_choice', N'She is my grandma.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'She is my grandma.', 1), (@QuestionID, N'He is my dad.', 0), (@QuestionID, N'It is a cat.', 0), (@QuestionID, N'I am Kim.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Do you have a brother?', 'multiple_choice', N'Yes, I do.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'Yes, I do.', 1), (@QuestionID, N'Yes, I am.', 0), (@QuestionID, N'No, it isn''t.', 0), (@QuestionID, N'He is my brother.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My ______ (bố) is strong.', 'multiple_choice', N'dad');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'dad', 1), (@QuestionID, N'mom', 0), (@QuestionID, N'sister', 0), (@QuestionID, N'baby', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'She is my ______ (mẹ).', 'multiple_choice', N'mom');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'mom', 1), (@QuestionID, N'dad', 0), (@QuestionID, N'brother', 0), (@QuestionID, N'grandpa', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who is the baby?', 'multiple_choice', N'It is my brother.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'It is my brother.', 1), (@QuestionID, N'It is a doll.', 0), (@QuestionID, N'It is a cat.', 0), (@QuestionID, N'He is tall.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My ______ (ông) is nice.', 'multiple_choice', N'grandpa');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'grandpa', 1), (@QuestionID, N'grandma', 0), (@QuestionID, N'aunt', 0), (@QuestionID, N'sister', 0);
+
+-- FILL BLANK
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (mẹ).', 'fill_in_blank', N'mom');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'mom', 1), (@QuestionID, N'dad', 0), (@QuestionID, N'sis', 0), (@QuestionID, N'bro', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who ______ this?', 'fill_in_blank', N'is');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'is', 1), (@QuestionID, N'are', 0), (@QuestionID, N'am', 0), (@QuestionID, N'be', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'He is my ______ (anh trai).', 'fill_in_blank', N'brother');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'brother', 1), (@QuestionID, N'sister', 0), (@QuestionID, N'mother', 0), (@QuestionID, N'father', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'She is my ______ (chị gái).', 'fill_in_blank', N'sister');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'sister', 1), (@QuestionID, N'brother', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'mom', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My dad is ______ (cao).', 'fill_in_blank', N'tall');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'tall', 1), (@QuestionID, N'ball', 0), (@QuestionID, N'call', 0), (@QuestionID, N'mall', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I love my ______ (gia đình).', 'fill_in_blank', N'family');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'family', 1), (@QuestionID, N'class', 0), (@QuestionID, N'school', 0), (@QuestionID, N'home', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my ______ (bố).', 'fill_in_blank', N'dad');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'dad', 1), (@QuestionID, N'mom', 0), (@QuestionID, N'bad', 0), (@QuestionID, N'sad', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is this your ______ (bà)?', 'fill_in_blank', N'grandma');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'grandma', 1), (@QuestionID, N'grandpa', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'mom', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who is ______ (cô ấy)?', 'fill_in_blank', N'she');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'she', 1), (@QuestionID, N'he', 0), (@QuestionID, N'it', 0), (@QuestionID, N'they', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Who is ______ (anh ấy)?', 'fill_in_blank', N'he');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'he', 1), (@QuestionID, N'she', 0), (@QuestionID, N'it', 0), (@QuestionID, N'we', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is my baby ______ (em trai).', 'fill_in_blank', N'brother');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'brother', 1), (@QuestionID, N'sister', 0), (@QuestionID, N'mother', 0), (@QuestionID, N'father', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My ______ (ông) is old.', 'fill_in_blank', N'grandpa');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'grandpa', 1), (@QuestionID, N'grandma', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'mom', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I have a ______ (cô/dì).', 'fill_in_blank', N'aunt');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'aunt', 1), (@QuestionID, N'uncle', 0), (@QuestionID, N'ant', 0), (@QuestionID, N'fan', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'He is my ______ (chú/bác).', 'fill_in_blank', N'uncle');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'uncle', 1), (@QuestionID, N'aunt', 0), (@QuestionID, N'dad', 0), (@QuestionID, N'mom', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Do you have a ______ (chị)?', 'fill_in_blank', N'sister');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'sister', 1), (@QuestionID, N'brother', 0), (@QuestionID, N'mother', 0), (@QuestionID, N'father', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'This is a ______ (bức ảnh).', 'fill_in_blank', N'photo');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'photo', 1), (@QuestionID, N'phone', 0), (@QuestionID, N'book', 0), (@QuestionID, N'bag', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is she your mom? - Yes, she ______.', 'fill_in_blank', N'is');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'is', 1), (@QuestionID, N'isn''t', 0), (@QuestionID, N'are', 0), (@QuestionID, N'am', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'My ______ (anh em họ) is funny.', 'fill_in_blank', N'cousin');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'cousin', 1), (@QuestionID, N'brother', 0), (@QuestionID, N'sister', 0), (@QuestionID, N'baby', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Is he your dad? - No, he ______.', 'fill_in_blank', N'isn''t');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'isn''t', 1), (@QuestionID, N'is', 0), (@QuestionID, N'not', 0), (@QuestionID, N'aren''t', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'I am a ______ (bé gái).', 'fill_in_blank', N'girl');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'girl', 1), (@QuestionID, N'boy', 0), (@QuestionID, N'baby', 0), (@QuestionID, N'kid', 0);
+
+
+-- #################################################################
+-- UNIT 3: MY BODY
+-- #################################################################
+PRINT N'--- Nạp Unit 3 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 3: My Body',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Head", "R": "Đầu"}', 1),
+(@QuestionID, N'{"L": "Arm", "R": "Cánh tay"}', 1),
+(@QuestionID, N'{"L": "Leg", "R": "Chân"}', 1),
+(@QuestionID, N'{"L": "Hand", "R": "Bàn tay"}', 1),
+(@QuestionID, N'{"L": "Foot", "R": "Bàn chân"}', 1),
+(@QuestionID, N'{"L": "Feet", "R": "Hai bàn chân"}', 1),
+(@QuestionID, N'{"L": "Finger", "R": "Ngón tay"}', 1),
+(@QuestionID, N'{"L": "Toe", "R": "Ngón chân"}', 1),
+(@QuestionID, N'{"L": "Body", "R": "Cơ thể"}', 1),
+(@QuestionID, N'{"L": "Knee", "R": "Đầu gối"}', 1),
+(@QuestionID, N'{"L": "Shoulder", "R": "Vai"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sắp xếp câu', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'Touch your head', 1),
+(@QuestionID, N'Clap your hands', 1),
+(@QuestionID, N'These are my arms', 1),
+(@QuestionID, N'Stomp your feet', 1),
+(@QuestionID, N'I have two hands', 1),
+(@QuestionID, N'Shake your legs', 1),
+(@QuestionID, N'Wave your arms', 1);
+
+-- QUIZ & FILL BLANK (Mẫu)
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'What is this?', 'multiple_choice', N'It is my head.');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'It is my head.', 1), (@QuestionID, N'It is a book.', 0), (@QuestionID, N'They are arms.', 0), (@QuestionID, N'I am happy.', 0);
+
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'These are my ______ (cánh tay).', 'fill_in_blank', N'arms');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES (@QuestionID, N'arms', 1), (@QuestionID, N'legs', 0), (@QuestionID, N'hands', 0), (@QuestionID, N'heads', 0);
+
+
+-- #################################################################
+-- UNIT 4: MY FACE
+-- #################################################################
+PRINT N'--- Nạp Unit 4 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 4: My Face',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Eye", "R": "Mắt"}', 1),
+(@QuestionID, N'{"L": "Nose", "R": "Mũi"}', 1),
+(@QuestionID, N'{"L": "Mouth", "R": "Miệng"}', 1),
+(@QuestionID, N'{"L": "Ear", "R": "Tai"}', 1),
+(@QuestionID, N'{"L": "Face", "R": "Khuôn mặt"}', 1),
+(@QuestionID, N'{"L": "Hair", "R": "Tóc"}', 1),
+(@QuestionID, N'{"L": "Teeth", "R": "Răng"}', 1),
+(@QuestionID, N'{"L": "Cheek", "R": "Má"}', 1),
+(@QuestionID, N'{"L": "Lips", "R": "Môi"}', 1),
+(@QuestionID, N'{"L": "Chin", "R": "Cằm"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sắp xếp câu', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'This is my nose', 1),
+(@QuestionID, N'Open your mouth', 1),
+(@QuestionID, N'Touch your ears', 1),
+(@QuestionID, N'I have two eyes', 1),
+(@QuestionID, N'My hair is black', 1);
+
+
+-- #################################################################
+-- UNIT 5: ANIMALS
+-- #################################################################
+PRINT N'--- Nạp Unit 5 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 5: Animals',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Cat", "R": "Mèo"}', 1),
+(@QuestionID, N'{"L": "Dog", "R": "Chó"}', 1),
+(@QuestionID, N'{"L": "Duck", "R": "Vịt"}', 1),
+(@QuestionID, N'{"L": "Bird", "R": "Chim"}', 1),
+(@QuestionID, N'{"L": "Cow", "R": "Bò"}', 1),
+(@QuestionID, N'{"L": "Pig", "R": "Lợn"}', 1),
+(@QuestionID, N'{"L": "Chicken", "R": "Gà"}', 1),
+(@QuestionID, N'{"L": "at", "R": "Dê"}', 1),
+(@QuestionID, N'{"L": "Horse", "R": "Ngựa"}', 1),
+(@QuestionID, N'{"L": "Sheep", "R": "Cừu"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sắp xếp câu', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'I see a cat', 1),
+(@QuestionID, N'It is a dog', 1),
+(@QuestionID, N'Do you like birds', 1),
+(@QuestionID, N'The duck says quack', 1),
+(@QuestionID, N'The cow eats grass', 1);
+
+
+-- #################################################################
+-- UNIT 6: MY HOUSE
+-- #################################################################
+PRINT N'--- Nạp Unit 6 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 6: My House',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "House", "R": "Ngôi nhà"}', 1),
+(@QuestionID, N'{"L": "Kitchen", "R": "Nhà bếp"}', 1),
+(@QuestionID, N'{"L": "Bedroom", "R": "Phòng ngủ"}', 1),
+(@QuestionID, N'{"L": "Bathroom", "R": "Phòng tắm"}', 1),
+(@QuestionID, N'{"L": "Living room", "R": "Phòng khách"}', 1),
+(@QuestionID, N'{"L": "Garden", "R": "Vườn"}', 1),
+(@QuestionID, N'{"L": "Window", "R": "Cửa sổ"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sắp xếp câu', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'Where is Mom', 1),
+(@QuestionID, N'She is in the kitchen', 1),
+(@QuestionID, N'This is my house', 1),
+(@QuestionID, N'I am in the bedroom', 1),
+(@QuestionID, N'Is dad in the garden', 1);
+
+
+-- #################################################################
+-- UNIT 7: CLOTHES
+-- #################################################################
+PRINT N'--- Nạp Unit 7 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 7: Clothes',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Shirt", "R": "Áo sơ mi"}', 1),
+(@QuestionID, N'{"L": "T-shirt", "R": "Áo phông"}', 1),
+(@QuestionID, N'{"L": "Pants", "R": "Quần dài"}', 1),
+(@QuestionID, N'{"L": "Shorts", "R": "Quần đùi"}', 1),
+(@QuestionID, N'{"L": "Dress", "R": "Váy"}', 1),
+(@QuestionID, N'{"L": "Skirt", "R": "Chân váy"}', 1),
+(@QuestionID, N'{"L": "Hat", "R": "Mũ"}', 1),
+(@QuestionID, N'{"L": "Shoes", "R": "Giày"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sắp xếp câu', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'I am wearing a dress', 1),
+(@QuestionID, N'This is my hat', 1),
+(@QuestionID, N'Are these your shoes', 1),
+(@QuestionID, N'I like this shirt', 1),
+(@QuestionID, N'My shorts are blue', 1);
+
+
+-- #################################################################
+-- UNIT 8: TOYS
+-- #################################################################
+PRINT N'--- Nạp Unit 8 ---';
+INSERT INTO Topics (TopicName,GradeID) VALUES (N'Lớp 2 (CD) - Unit 8: Toys',2);
+SET @TopicID = SCOPE_IDENTITY();
+
+-- MATCHING
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Nối từ vựng', 'matching', N'Pairs');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'{"L": "Teddy bear", "R": "Gấu bông"}', 1),
+(@QuestionID, N'{"L": "Car", "R": "Ô tô"}', 1),
+(@QuestionID, N'{"L": "Robot", "R": "Người máy"}', 1),
+(@QuestionID, N'{"L": "Ball", "R": "Bóng"}', 1),
+(@QuestionID, N'{"L": "Kite", "R": "Diều"}', 1),
+(@QuestionID, N'{"L": "Bike", "R": "Xe đạp"}', 1),
+(@QuestionID, N'{"L": "Train", "R": "Tàu hỏa"}', 1),
+(@QuestionID, N'{"L": "Plane", "R": "Máy bay"}', 1);
+
+-- SCRAMBLE
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer) VALUES (@TopicID, N'Sắp xếp câu', 'scramble', N'Sentences');
+SET @QuestionID = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+(@QuestionID, N'I have a robot', 1),
+(@QuestionID, N'Do you like cars', 1),
+(@QuestionID, N'It is a blue kite', 1),
+(@QuestionID, N'My teddy bear is soft', 1),
+(@QuestionID, N'Let us play ball', 1);
+PRINT N'✅ ĐÃ HOÀN TẤT NẠP DỮ LIỆU (FULL UNIT 0-8) THEO ĐÚNG CẤU TRÚC YÊU CẦU!';
+
+USE GameHocTiengAnh1;
+GO
+
+PRINT N'=== NẠP DỮ LIỆU REVIEW LỚP 3 (FULL UNIT 0-8) ===';
+
+-- ==========================================================
+-- BƯỚC 1: TẠO TOPICS CHO LỚP 3 (VỚI GRADE ID = 3)
+-- ==========================================================
+-- Lưu ý: Giả định GradeID của Lớp 3 là 3. Nếu khác, hãy sửa số 3 bên dưới.
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 0: Getting Started')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 0: Getting Started', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 1: My Classroom')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 1: My Classroom', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 2: My World')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 2: My World', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 3: My Family')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 3: My Family', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 4: My House')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 4: My House', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 5: Cool Clothes')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 5: Cool Clothes', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 6: My Toys')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 6: My Toys', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 7: My Body')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 7: My Body', 3);
+
+IF NOT EXISTS (SELECT 1 FROM Topics WHERE TopicName = N'Lớp 3 - Unit 8: Good Food')
+    INSERT INTO Topics (TopicName, GradeID) VALUES (N'Lớp 3 - Unit 8: Good Food', 3);
+
+-- ==========================================================
+-- BƯỚC 2: KHAI BÁO BIẾN ID (ĐỂ DÙNG CHUNG CHO CẢ SCRIPT)
+-- ==========================================================
+DECLARE @Unit0ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 0: Getting Started');
+DECLARE @Unit1ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 1: My Classroom');
+DECLARE @Unit2ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 2: My World');
+DECLARE @Unit3ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 3: My Family');
+DECLARE @Unit4ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 4: My House');
+DECLARE @Unit5ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 5: Cool Clothes');
+DECLARE @Unit6ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 6: My Toys');
+DECLARE @Unit7ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 7: My Body');
+DECLARE @Unit8ID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 3 - Unit 8: Good Food');
+
+-- ==========================================================
+-- BƯỚC 3: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 0)
+-- ==========================================================
+PRINT N'--- Processing Unit 0 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('listen',    N'lắng nghe',     'Verb',   N'Listen, please.', @Unit0ID),
+('read',      N'đọc',           'Verb',   N'Read the sentence.', @Unit0ID),
+('point',     N'chỉ (tay)',     'Verb',   N'Point to the picture.', @Unit0ID),
+('say',       N'nói',           'Verb',   N'Say your name.', @Unit0ID),
+('write',     N'viết',          'Verb',   N'Write “Mia”.', @Unit0ID),
+('draw',      N'vẽ',            'Verb',   N'Draw a sun.', @Unit0ID),
+('sing',      N'hát',           'Verb',   N'Sing a song.', @Unit0ID),
+('count',     N'đếm',           'Verb',   N'Count from one to ten.', @Unit0ID),
+('stand up',  N'đứng lên',      'Phrase', N'Stand up, please.', @Unit0ID),
+('sit down',  N'ngồi xuống',    'Phrase', N'Sit down, please.', @Unit0ID),
+('hi',                N'xin chào (thân mật)', 'Interjection', N'Hi, Nam!', @Unit0ID),
+('hello',             N'xin chào',            'Interjection', N'Hello!', @Unit0ID),
+('goodbye',           N'tạm biệt',            'Interjection', N'Goodbye! See you.', @Unit0ID),
+('bye',               N'tạm biệt',            'Interjection', N'Bye!', @Unit0ID),
+('nice to meet you',  N'rất vui được gặp bạn','Phrase',       N'Nice to meet you.', @Unit0ID),
+('how are you',       N'bạn khỏe không',      'Phrase',       N'How are you?', @Unit0ID),
+('i am fine',         N'mình khỏe',           'Phrase',       N'I am fine, thanks.', @Unit0ID),
+('thanks',            N'cảm ơn',              'Interjection', N'Thanks!', @Unit0ID),
+('red',    N'màu đỏ',        'Adjective', N'It is red.', @Unit0ID),
+('purple', N'màu tím',       'Adjective', N'It is purple.', @Unit0ID),
+('yellow', N'màu vàng',      'Adjective', N'It is yellow.', @Unit0ID),
+('blue',   N'màu xanh dương','Adjective', N'It is blue.', @Unit0ID),
+('orange', N'màu cam',       'Adjective', N'It is orange.', @Unit0ID),
+('white',  N'màu trắng',     'Adjective', N'It is white.', @Unit0ID),
+('black',  N'màu đen',       'Adjective', N'It is black.', @Unit0ID),
+('green',  N'màu xanh lá',   'Adjective', N'It is green.', @Unit0ID),
+('brown',  N'màu nâu',       'Adjective', N'It is brown.', @Unit0ID),
+('pink',   N'màu hồng',      'Adjective', N'It is pink.', @Unit0ID),
+('one',   N'số 1',  'Number', N'One, two, three...', @Unit0ID),
+('two',   N'số 2',  'Number', N'Two pencils.', @Unit0ID),
+('three', N'số 3',  'Number', N'Three books.', @Unit0ID),
+('four',  N'số 4',  'Number', N'Four pens.', @Unit0ID),
+('five',  N'số 5',  'Number', N'Five chairs.', @Unit0ID),
+('six',   N'số 6',  'Number', N'Six pictures.', @Unit0ID),
+('seven', N'số 7',  'Number', N'Seven rulers.', @Unit0ID),
+('eight', N'số 8',  'Number', N'Eight erasers.', @Unit0ID),
+('nine',  N'số 9',  'Number', N'Nine crayons.', @Unit0ID),
+('ten',   N'số 10', 'Number', N'Ten students.', @Unit0ID),
+('eleven',N'số 11', 'Number', N'Eleven.', @Unit0ID),
+('twelve',N'số 12', 'Number', N'Twelve.', @Unit0ID),
+('thirteen',N'số 13','Number',N'Thirteen.', @Unit0ID),
+('fourteen',N'số 14','Number',N'Fourteen.', @Unit0ID),
+('fifteen',N'số 15','Number',N'Fifteen.', @Unit0ID),
+('sixteen',N'số 16','Number',N'Sixteen.', @Unit0ID),
+('seventeen',N'số 17','Number',N'Seventeen.', @Unit0ID),
+('eighteen',N'số 18','Number',N'Eighteen.', @Unit0ID),
+('nineteen',N'số 19','Number',N'Nineteen.', @Unit0ID),
+('twenty', N'số 20','Number', N'Twenty.', @Unit0ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'Chào hỏi & giới thiệu', N'Hi/Hello. I''m + Name. / My name''s + Name.', N'Dùng để chào và nói tên.', N'Hello. I''m Mia. / My name''s Nam.', @Unit0ID),
+(N'Hỏi tên', N'What''s your name?', N'Hỏi tên người khác.', N'What''s your name? My name''s Lan.', @Unit0ID),
+(N'Hỏi thăm sức khỏe', N'How are you? — I''m fine/good, thanks.', N'Hỏi và trả lời “khỏe không”.', N'How are you? I''m fine, thanks.', @Unit0ID),
+(N'Đánh vần tên', N'How do you spell your name? — (A-B-C...)', N'Hỏi cách đánh vần tên.', N'How do you spell your name? M-I-A.', @Unit0ID),
+(N'Hỏi tuổi', N'How old are you? — I''m + number.', N'Hỏi và trả lời tuổi.', N'How old are you? I''m eight.', @Unit0ID),
+(N'Hỏi màu', N'What color is it? — It''s + color.', N'Hỏi và trả lời màu sắc.', N'What color is it? It''s red.', @Unit0ID),
+(N'Mệnh lệnh lịch sự', N'Stand up/Sit down, please.', N'Dùng trong lớp học.', N'Stand up, please.', @Unit0ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 4: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 1)
+-- ==========================================================
+PRINT N'--- Processing Unit 1 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('backpack', N'ba lô', 'Noun', N'My backpack is blue.', @Unit1ID),
+('board', N'bảng', 'Noun', N'The board is big.', @Unit1ID),
+('book', N'sách', 'Noun', N'This is my book.', @Unit1ID),
+('chair', N'ghế', 'Noun', N'Sit on the chair.', @Unit1ID),
+('clock', N'đồng hồ', 'Noun', N'The clock is on the wall.', @Unit1ID),
+('computer', N'máy tính', 'Noun', N'I use a computer.', @Unit1ID),
+('crayon', N'bút sáp màu', 'Noun', N'I have a crayon.', @Unit1ID),
+('desk', N'bàn học', 'Noun', N'This desk is new.', @Unit1ID),
+('eraser', N'cục tẩy', 'Noun', N'I need an eraser.', @Unit1ID),
+('glue', N'keo dán', 'Noun', N'Use glue for the paper.', @Unit1ID),
+('map', N'bản đồ', 'Noun', N'The map is here.', @Unit1ID),
+('paper', N'giấy', 'Noun', N'I have paper.', @Unit1ID),
+('pen', N'bút mực', 'Noun', N'This pen is black.', @Unit1ID),
+('pencil', N'bút chì', 'Noun', N'This is a pencil.', @Unit1ID),
+('picture', N'bức tranh', 'Noun', N'That picture is nice.', @Unit1ID),
+('ruler', N'thước kẻ', 'Noun', N'This ruler is long.', @Unit1ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'Sở hữu: I have...', N'I have a/an + noun.', N'Nói mình có đồ vật.', N'I have a crayon.', @Unit1ID),
+(N'Hỏi vật: What is it?', N'What is it? — It''s a/an + noun.', N'Hỏi và trả lời “đây là gì”.', N'What is it? It''s a pencil.', @Unit1ID),
+(N'Hỏi số lượng', N'How many + plural noun(s)? — One/Two/Three...', N'Hỏi và trả lời số lượng đồ vật.', N'How many pencils? Three.', @Unit1ID),
+(N'There is / There are', N'There is a + singular noun. / There are + number + plural noun(s).', N'Nói có cái gì ở đâu đó.', N'There is a book. There are two pens.', @Unit1ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 5: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 2)
+-- ==========================================================
+PRINT N'--- Processing Unit 2 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('bird', N'con chim', 'Noun', N'A bird can fly.', @Unit2ID),
+('bush', N'bụi cây', 'Noun', N'The frog is near the bush.', @Unit2ID),
+('butterfly', N'con bướm', 'Noun', N'It is a butterfly.', @Unit2ID),
+('cloud', N'đám mây', 'Noun', N'The clouds are in the sky.', @Unit2ID),
+('flower', N'bông hoa', 'Noun', N'A flower is beautiful.', @Unit2ID),
+('moon', N'mặt trăng', 'Noun', N'The moon is bright.', @Unit2ID),
+('mountain', N'ngọn núi', 'Noun', N'That mountain is high.', @Unit2ID),
+('ocean', N'đại dương', 'Noun', N'The ocean is big.', @Unit2ID),
+('pet dog', N'chó nuôi', 'Noun', N'This is my pet dog.', @Unit2ID),
+('rainbow', N'cầu vồng', 'Noun', N'I see a rainbow.', @Unit2ID),
+('river', N'sông', 'Noun', N'The river is long.', @Unit2ID),
+('rock', N'hòn đá', 'Noun', N'It is on the rock.', @Unit2ID),
+('sky', N'bầu trời', 'Noun', N'The sky is blue.', @Unit2ID),
+('star', N'ngôi sao', 'Noun', N'I see a star.', @Unit2ID),
+('sun', N'mặt trời', 'Noun', N'The sun is hot.', @Unit2ID),
+('tree', N'cây', 'Noun', N'It is a tree.', @Unit2ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'Yes/No: Is it a/an...?', N'Is it a/an + noun? — Yes, it is. / No, it isn''t.', N'Hỏi đoán 1 vật/con vật.', N'Is it a butterfly? Yes, it is.', @Unit2ID),
+(N'What is it?', N'What is it? — It''s a/an + noun.', N'Hỏi và trả lời “đây là gì”.', N'What is it? It''s a tree.', @Unit2ID),
+(N'What are they?', N'What are they? — They''re + plural noun(s).', N'Hỏi & trả lời nhiều vật.', N'What are they? They''re rocks.', @Unit2ID),
+(N'Where is/are...?', N'Where is the + noun? — It''s in/on/near + place. / Where are the + plural noun(s)? — They''re in/on + place.', N'Hỏi & trả lời vị trí.', N'Where are the clouds? They''re in the sky.', @Unit2ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 6: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 3)
+-- ==========================================================
+PRINT N'--- Processing Unit 3 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('beautiful', N'đẹp', 'Adjective', N'She is beautiful.', @Unit3ID),
+('big', N'lớn', 'Adjective', N'My family is big.', @Unit3ID),
+('brother', N'anh/em trai', 'Noun', N'I have one brother.', @Unit3ID),
+('father', N'bố', 'Noun', N'This is my father.', @Unit3ID),
+('grandfather', N'ông', 'Noun', N'He is my grandfather.', @Unit3ID),
+('grandmother', N'bà', 'Noun', N'She is my grandmother.', @Unit3ID),
+('grandparents',N'ông bà', 'Noun', N'I love my grandparents.', @Unit3ID),
+('handsome', N'đẹp trai', 'Adjective', N'He is handsome.', @Unit3ID),
+('mother', N'mẹ', 'Noun', N'This is my mother.', @Unit3ID),
+('old', N'già', 'Adjective', N'He is old.', @Unit3ID),
+('parents', N'bố mẹ', 'Noun', N'My parents are kind.', @Unit3ID),
+('short', N'thấp/lùn', 'Adjective', N'She is short.', @Unit3ID),
+('sister', N'chị/em gái', 'Noun', N'She is my sister.', @Unit3ID),
+('small', N'nhỏ', 'Adjective', N'The baby is small.', @Unit3ID),
+('tall', N'cao', 'Adjective', N'He is tall.', @Unit3ID),
+('young', N'trẻ', 'Adjective', N'She is young.', @Unit3ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'Hỏi người này là ai', N'Who''s this? — (He/She is) my + family member. / It''s my + family member.', N'Hỏi và trả lời về người trong gia đình.', N'Who''s this? She''s my sister.', @Unit3ID),
+(N'Hỏi: Who''s he / she?', N'Who''s he? — He''s my + family member. / Who''s she? — She''s my + family member.', N'Hỏi và trả lời “ông ấy/bà ấy/cô ấy là ai”.', N'Who''s he? He''s my grandfather.', @Unit3ID),
+(N'Hỏi số lượng anh/em', N'How many brothers/sisters do you have? — I have + number + brothers/sisters. / I have no brothers/sisters.', N'Hỏi và trả lời số lượng anh/em.', N'How many brothers do you have? I have two brothers. / I have no brothers.', @Unit3ID),
+(N'Miêu tả bằng tính từ', N'The + person + is + adjective.', N'Nói đặc điểm (cao/thấp/già/trẻ...).', N'The sister is tall.', @Unit3ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 7: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 4)
+-- ==========================================================
+PRINT N'--- Processing Unit 4 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('bathroom', N'phòng tắm', 'Noun', N'The bathroom is clean.', @Unit4ID),
+('bed', N'cái giường', 'Noun', N'This is my bed.', @Unit4ID),
+('bedroom', N'phòng ngủ', 'Noun', N'My bedroom is small.', @Unit4ID),
+('cleaning', N'dọn dẹp', 'Verb', N'I am cleaning.', @Unit4ID),
+('cooking', N'nấu ăn', 'Verb', N'Mom is cooking.', @Unit4ID),
+('dining room', N'phòng ăn', 'Noun', N'The dining room is big.', @Unit4ID),
+('eating', N'ăn', 'Verb', N'I am eating.', @Unit4ID),
+('kitchen', N'nhà bếp', 'Noun', N'The kitchen is here.', @Unit4ID),
+('lamp', N'đèn', 'Noun', N'The lamp is on the table.', @Unit4ID),
+('living room', N'phòng khách', 'Noun', N'We are in the living room.', @Unit4ID),
+('playing', N'chơi', 'Verb', N'They are playing.', @Unit4ID),
+('sleeping', N'ngủ', 'Verb', N'He is sleeping.', @Unit4ID),
+('sofa', N'ghế sofa', 'Noun', N'The sofa is brown.', @Unit4ID),
+('table', N'cái bàn', 'Noun', N'The table is big.', @Unit4ID),
+('taking a bath', N'tắm bồn', 'Phrase', N'She is taking a bath.', @Unit4ID),
+('toilet', N'bồn cầu/nhà vệ sinh','Noun', N'The toilet is in the bathroom.', @Unit4ID),
+('washing dishes',N'rửa bát', 'Phrase', N'He is washing dishes.', @Unit4ID),
+('watching TV', N'xem TV', 'Phrase', N'She is watching TV.', @Unit4ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'There is / There isn''t (số ít)', N'Is there a/an + noun + in the + place? — Yes, there is. / No, there isn''t.', N'Hỏi và trả lời có 1 vật không (số ít).', N'Is there a flower in the dining room? Yes, there is.', @Unit4ID),
+(N'There are / There aren''t (số nhiều)', N'Are there any + plural noun(s) + in the + place? — Yes, there are. / No, there aren''t.', N'Hỏi và trả lời có nhiều vật không (số nhiều).', N'Are there any chairs in the kitchen? No, there aren''t.', @Unit4ID),
+(N'Hỏi vị trí', N'Where are you? — I''m at home. / I''m in the + place.', N'Hỏi và trả lời bạn đang ở đâu.', N'Where are you? I''m at home.', @Unit4ID),
+(N'Hiện tại tiếp diễn: hỏi đang làm gì', N'What are you doing? — I''m + V-ing.', N'Hỏi và trả lời hành động đang diễn ra.', N'What are you doing? I''m cleaning.', @Unit4ID),
+(N'Hiện tại tiếp diễn: he/she', N'What is he/she doing? — He''s/She''s + V-ing.', N'Hỏi và trả lời hành động của người khác.', N'What is she doing? She''s watching TV.', @Unit4ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 8: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 5)
+-- ==========================================================
+PRINT N'--- Processing Unit 5 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('boots', N'ủng/giày bốt', 'Noun', N'These are my boots.', @Unit5ID),
+('brown', N'màu nâu', 'Adjective', N'It is brown.', @Unit5ID),
+('closet', N'tủ quần áo', 'Noun', N'The closet is big.', @Unit5ID),
+('dress', N'váy (liền)', 'Noun', N'She wears a dress.', @Unit5ID),
+('gloves', N'găng tay', 'Noun', N'I wear gloves.', @Unit5ID),
+('hanger', N'móc treo', 'Noun', N'Put it on a hanger.', @Unit5ID),
+('hat', N'mũ', 'Noun', N'This is my hat.', @Unit5ID),
+('jacket', N'áo khoác', 'Noun', N'I have a jacket.', @Unit5ID),
+('pants', N'quần dài', 'Noun', N'He wears pants.', @Unit5ID),
+('pink', N'màu hồng', 'Adjective', N'It is pink.', @Unit5ID),
+('scarf', N'khăn quàng', 'Noun', N'This is my scarf.', @Unit5ID),
+('shelf', N'kệ', 'Noun', N'It is on the shelf.', @Unit5ID),
+('shirt', N'áo sơ mi', 'Noun', N'This is my shirt.', @Unit5ID),
+('shoes', N'giày', 'Noun', N'I wear shoes.', @Unit5ID),
+('skirt', N'váy', 'Noun', N'She wears a skirt.', @Unit5ID),
+('socks', N'tất/vớ', 'Noun', N'I wear socks.', @Unit5ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'Hỏi đang mặc gì', N'What are you wearing? — I''m wearing + (color) + clothes.', N'Hỏi và trả lời đang mặc gì.', N'What are you wearing? I''m wearing yellow shoes.', @Unit5ID),
+(N'Yes/No: Are you wearing...?', N'Are you wearing + (color) + clothes? — Yes, I am. / No, I''m not.', N'Hỏi xác nhận có đang mặc món đó không.', N'Are you wearing green gloves? Yes, I am.', @Unit5ID),
+(N'This/That (số ít) + my', N'This is my + noun. / That is my + noun.', N'Chỉ đồ vật số ít (gần/xa).', N'This is my blue scarf. That is my brown hat.', @Unit5ID),
+(N'These/Those (số nhiều) + my', N'These are my + plural noun(s). / Those are my + plural noun(s).', N'Chỉ đồ vật số nhiều (gần/xa).', N'These are my purple boots. Those are my green gloves.', @Unit5ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 9: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 6)
+-- ==========================================================
+PRINT N'--- Processing Unit 6 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('ball', N'quả bóng', 'Noun', N'I want a ball.', @Unit6ID),
+('bike', N'xe đạp', 'Noun', N'This is my bike.', @Unit6ID),
+('car', N'ô tô (đồ chơi)', 'Noun', N'I have a toy car.', @Unit6ID),
+('doll', N'búp bê', 'Noun', N'This is a doll.', @Unit6ID),
+('drum', N'trống', 'Noun', N'I play the drum.', @Unit6ID),
+('game', N'trò chơi', 'Noun', N'Let''s play a game.', @Unit6ID),
+('kite', N'cái diều', 'Noun', N'I want a kite.', @Unit6ID),
+('plane', N'máy bay (đồ chơi)','Noun', N'This is a plane.', @Unit6ID),
+('puppet', N'con rối', 'Noun', N'I have a puppet.', @Unit6ID),
+('puzzle', N'trò xếp hình', 'Noun', N'This puzzle is fun.', @Unit6ID),
+('robot', N'rô-bốt', 'Noun', N'This is a robot.', @Unit6ID),
+('teddy bear',N'gấu bông', 'Noun', N'I love my teddy bear.', @Unit6ID),
+('top', N'con quay', 'Noun', N'This top is new.', @Unit6ID),
+('train', N'tàu hỏa (đồ chơi)','Noun', N'I have a train.', @Unit6ID),
+('truck', N'xe tải (đồ chơi)','Noun', N'I have a truck.', @Unit6ID),
+('yo-yo', N'yo-yo', 'Noun', N'This is my yo-yo.', @Unit6ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'What do you want?', N'What do you want? — I want a/an + noun.', N'Hỏi và trả lời muốn gì.', N'What do you want? I want a ball.', @Unit6ID),
+(N'Yes/No: Do you want...?', N'Do you want a/an + noun? — Yes, I do. / No, I don''t.', N'Hỏi có muốn món đó không.', N'Do you want a kite? Yes, I do.', @Unit6ID),
+(N'Is this your...?', N'Is this your + noun? — Yes, it is. / No, it isn''t.', N'Hỏi xác nhận đồ vật số ít.', N'Is this your robot? Yes, it is.', @Unit6ID),
+(N'Are these your...?', N'Are these your + plural noun(s)? — Yes, they are. / No, they aren''t.', N'Hỏi xác nhận đồ vật số nhiều.', N'Are these your balls? No, they aren''t.', @Unit6ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 10: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 7)
+-- ==========================================================
+PRINT N'--- Processing Unit 7 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('arm', N'cánh tay', 'Noun', N'This is my arm.', @Unit7ID),
+('curly hair', N'tóc xoăn', 'Phrase', N'She has curly hair.', @Unit7ID),
+('ear', N'tai', 'Noun', N'This is my ear.', @Unit7ID),
+('eye', N'mắt', 'Noun', N'My eyes are brown.', @Unit7ID),
+('fly', N'bay', 'Verb', N'A bird can fly.', @Unit7ID),
+('foot', N'bàn chân', 'Noun', N'This is my foot.', @Unit7ID),
+('hair', N'tóc', 'Noun', N'Her hair is long.', @Unit7ID),
+('hand', N'bàn tay', 'Noun', N'These are my hands.', @Unit7ID),
+('head', N'đầu', 'Noun', N'This is my head.', @Unit7ID),
+('jump', N'nhảy', 'Verb', N'I can jump.', @Unit7ID),
+('leg', N'cẳng chân', 'Noun', N'This is my leg.', @Unit7ID),
+('mouth', N'miệng', 'Noun', N'This is my mouth.', @Unit7ID),
+('nose', N'mũi', 'Noun', N'This is my nose.', @Unit7ID),
+('round eyes', N'đôi mắt tròn', 'Phrase', N'She has round eyes.', @Unit7ID),
+('run', N'chạy', 'Verb', N'I can run.', @Unit7ID),
+('straight hair',N'tóc thẳng', 'Phrase', N'He has straight hair.', @Unit7ID),
+('strong arms', N'cánh tay khỏe', 'Phrase', N'He has strong arms.', @Unit7ID),
+('walk', N'đi bộ', 'Verb', N'I can walk.', @Unit7ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'These/Those (tay)', N'These are my + plural noun(s). / Those are your + plural noun(s).', N'Chỉ bộ phận cơ thể số nhiều (gần/xa).', N'These are my hands. Those are your hands.', @Unit7ID),
+(N'Our/His/Her/Their', N'Our/His/Her/Their + noun + is/are + adjective.', N'Dùng tính từ sở hữu + miêu tả.', N'Our hands are small. His eyes are brown.', @Unit7ID),
+(N'Can / Can''t', N'Can you + verb? — Yes, I can. / No, I can''t. / I can + verb.', N'Hỏi và nói về khả năng.', N'Can you run? Yes, I can. I can run.', @Unit7ID),
+(N'Has (miêu tả)', N'She/He has + adjective + noun.', N'Miêu tả đặc điểm (tóc, mắt...).', N'She has round eyes.', @Unit7ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+-- ==========================================================
+-- BƯỚC 11: NẠP TỪ VỰNG & NGỮ PHÁP (UNIT 8)
+-- ==========================================================
+PRINT N'--- Processing Unit 8 ---';
+INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID)
+SELECT * FROM (VALUES
+('apple', N'táo', 'Noun', N'I like apples.', @Unit8ID),
+('banana', N'chuối', 'Noun', N'I like bananas.', @Unit8ID),
+('chicken', N'gà', 'Noun', N'I like chicken.', @Unit8ID),
+('coconut water', N'nước dừa', 'Phrase', N'I drink coconut water.', @Unit8ID),
+('cookie', N'bánh quy', 'Noun', N'I like cookies.', @Unit8ID),
+('egg', N'trứng', 'Noun', N'There are some eggs.', @Unit8ID),
+('fish', N'cá', 'Noun', N'I like fish.', @Unit8ID),
+('lemonade', N'nước chanh', 'Noun', N'I drink lemonade.', @Unit8ID),
+('milk', N'sữa', 'Noun', N'There is a lot of milk.', @Unit8ID),
+('milkshake', N'sữa lắc', 'Noun', N'I like milkshake.', @Unit8ID),
+('orange juice', N'nước cam', 'Phrase', N'I drink orange juice.', @Unit8ID),
+('rice', N'cơm/gạo', 'Noun', N'I eat rice.', @Unit8ID),
+('sandwich', N'bánh mì kẹp', 'Noun', N'I eat a sandwich.', @Unit8ID),
+('soda', N'nước ngọt', 'Noun', N'I don''t drink soda.', @Unit8ID),
+('soup', N'súp/canh', 'Noun', N'I like soup.', @Unit8ID),
+('tea', N'trà', 'Noun', N'I drink tea.', @Unit8ID),
+('vegetables', N'rau', 'Noun', N'I eat vegetables.', @Unit8ID),
+('water', N'nước', 'Noun', N'There is some water.', @Unit8ID)
+) AS v(Word,Meaning,WordType,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Vocabulary x WHERE x.TopicID=v.TopicID AND x.Word=v.Word);
+
+INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID)
+SELECT * FROM (VALUES
+(N'Hỏi món yêu thích', N'What''s your favorite food? — (Food). / I like + food.', N'Hỏi và trả lời món ăn yêu thích.', N'What''s your favorite food? Apples. I like apples.', @Unit8ID),
+(N'Do you like...?', N'Do you like + food? — Yes, I do. I like + food. / No, I don''t. I don''t like + food.', N'Hỏi và trả lời thích/không thích.', N'Do you like bananas? Yes, I do. I like bananas. / No, I don''t. I don''t like bananas.', @Unit8ID),
+(N'There is (a/an/some)', N'There is a/an + singular noun. / There is some + uncountable noun.', N'Nói có 1 vật (đếm được) hoặc 1 ít (không đếm được).', N'There is an apple. There is some water.', @Unit8ID),
+(N'There are (some/many/a lot of)', N'There are some + plural noun(s). / There are many/a lot of + plural noun(s).', N'Nói có nhiều vật (đếm được).', N'There are some eggs. There are many cookies. There are a lot of bananas.', @Unit8ID),
+(N'A lot of (uncountable)', N'There is a lot of + uncountable noun.', N'Nói nhiều với danh từ không đếm được.', N'There is a lot of milk.', @Unit8ID)
+) AS g(GrammarName,Structure,Usage,Example,TopicID)
+WHERE NOT EXISTS (SELECT 1 FROM Grammar x WHERE x.TopicID=g.TopicID AND x.GrammarName=g.GrammarName);
+
+PRINT N'✅ ĐÃ NẠP XONG DỮ LIỆU REVIEW LỚP 3!';
+
+
+
+
+USE GameHocTiengAnh1;
+GO
+
+PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 1 (MATCHING) CHO LỚP 3 ===';
+
+-- KHAI BÁO BIẾN ID (TÌM THEO TÊN CHUẨN "Lớp 3 - ...")
+
+DECLARE @Q_ID INT;
+DECLARE @U0 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 0%');
+DECLARE @U1 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 1%');
+DECLARE @U2 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 2%');
+DECLARE @U3 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 3%');
+DECLARE @U4 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 4%');
+DECLARE @U5 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 5%');
+DECLARE @U6 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 6%');
+DECLARE @U7 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 7%');
+DECLARE @U8 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 8%');
+
+-- Kiểm tra xem có tìm thấy Topic không
+IF @U0 IS NULL PRINT N'⚠️ CẢNH BÁO: Không tìm thấy Topic Lớp 3! Hãy kiểm tra lại tên trong bảng Topics.';
+
+-- ==========================================================
+-- UNIT 0 (LỚP 3)
+-- ==========================================================
+IF @U0 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U0, N'Nối từ và câu Unit 0 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Hello", "R": "Xin chào"}', 1),
+    (@Q_ID, N'{"L": "Goodbye", "R": "Tạm biệt"}', 1),
+    (@Q_ID, N'{"L": "Please", "R": "Làm ơn"}', 1),
+    (@Q_ID, N'{"L": "Thank you", "R": "Cảm ơn"}', 1),
+    (@Q_ID, N'{"L": "Sorry", "R": "Xin lỗi"}', 1),
+    (@Q_ID, N'{"L": "Yes", "R": "Vâng / Có"}', 1),
+    (@Q_ID, N'{"L": "No", "R": "Không"}', 1),
+    (@Q_ID, N'{"L": "One", "R": "Số 1"}', 1),
+    (@Q_ID, N'{"L": "Two", "R": "Số 2"}', 1),
+    (@Q_ID, N'{"L": "Red", "R": "Màu đỏ"}', 1),
+    (@Q_ID, N'{"L": "Blue", "R": "Màu xanh dương"}', 1),
+    (@Q_ID, N'{"L": "Green", "R": "Màu xanh lá"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "What is your name?", "R": "My name is Lan."}', 1),
+    (@Q_ID, N'{"L": "How are you?", "R": "I am fine, thanks."}', 1),
+    (@Q_ID, N'{"L": "Nice to meet you.", "R": "Nice to meet you, too."}', 1),
+    (@Q_ID, N'{"L": "How old are you?", "R": "I am eight years old."}', 1),
+    (@Q_ID, N'{"L": "How do you spell your name?", "R": "L-A-N."}', 1),
+    (@Q_ID, N'{"L": "What color is it?", "R": "It is red."}', 1),
+    (@Q_ID, N'{"L": "Stand up, please.", "R": "OK."}', 1),
+    (@Q_ID, N'{"L": "Sit down, please.", "R": "OK."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 1 (LỚP 3)
+-- ==========================================================
+IF @U1 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U1, N'Nối từ và câu Unit 1 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Book", "R": "Quyển sách"}', 1),
+    (@Q_ID, N'{"L": "Pen", "R": "Bút mực"}', 1),
+    (@Q_ID, N'{"L": "Pencil", "R": "Bút chì"}', 1),
+    (@Q_ID, N'{"L": "Ruler", "R": "Cây thước"}', 1),
+    (@Q_ID, N'{"L": "Eraser", "R": "Cục tẩy"}', 1),
+    (@Q_ID, N'{"L": "Backpack", "R": "Cặp sách"}', 1),
+    (@Q_ID, N'{"L": "Desk", "R": "Bàn học"}', 1),
+    (@Q_ID, N'{"L": "Chair", "R": "Cái ghế"}', 1),
+    (@Q_ID, N'{"L": "Board", "R": "Bảng"}', 1),
+    (@Q_ID, N'{"L": "Window", "R": "Cửa sổ"}', 1),
+    (@Q_ID, N'{"L": "Door", "R": "Cửa ra vào"}', 1),
+    (@Q_ID, N'{"L": "Teacher", "R": "Giáo viên"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "What is this?", "R": "It is a book."}', 1),
+    (@Q_ID, N'{"L": "What are these?", "R": "They are pencils."}', 1),
+    (@Q_ID, N'{"L": "How many pens are there?", "R": "There are three pens."}', 1),
+    (@Q_ID, N'{"L": "Open your book, please.", "R": "OK."}', 1),
+    (@Q_ID, N'{"L": "Close your book, please.", "R": "OK."}', 1),
+    (@Q_ID, N'{"L": "Where is the book?", "R": "It is on the desk."}', 1),
+    (@Q_ID, N'{"L": "Is this your backpack?", "R": "Yes, it is."}', 1),
+    (@Q_ID, N'{"L": "Is that your ruler?", "R": "No, it is not."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 2 (LỚP 3)
+-- ==========================================================
+IF @U2 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U2, N'Nối từ và câu Unit 2 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Sun", "R": "Mặt trời"}', 1),
+    (@Q_ID, N'{"L": "Moon", "R": "Mặt trăng"}', 1),
+    (@Q_ID, N'{"L": "Sky", "R": "Bầu trời"}', 1),
+    (@Q_ID, N'{"L": "Cloud", "R": "Đám mây"}', 1),
+    (@Q_ID, N'{"L": "Tree", "R": "Cây"}', 1),
+    (@Q_ID, N'{"L": "Flower", "R": "Bông hoa"}', 1),
+    (@Q_ID, N'{"L": "Bird", "R": "Con chim"}', 1),
+    (@Q_ID, N'{"L": "Fish", "R": "Con cá"}', 1),
+    (@Q_ID, N'{"L": "Frog", "R": "Con ếch"}', 1),
+    (@Q_ID, N'{"L": "River", "R": "Con sông"}', 1),
+    (@Q_ID, N'{"L": "Mountain", "R": "Ngọn núi"}', 1),
+    (@Q_ID, N'{"L": "Rainbow", "R": "Cầu vồng"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "What is it?", "R": "It is a bird."}', 1),
+    (@Q_ID, N'{"L": "Is it a frog?", "R": "Yes, it is."}', 1),
+    (@Q_ID, N'{"L": "Is it a fish?", "R": "No, it is not."}', 1),
+    (@Q_ID, N'{"L": "What are they?", "R": "They are clouds."}', 1),
+    (@Q_ID, N'{"L": "Where is the bird?", "R": "It is in the tree."}', 1),
+    (@Q_ID, N'{"L": "Where is the fish?", "R": "It is in the river."}', 1),
+    (@Q_ID, N'{"L": "The sky is", "R": "blue."}', 1),
+    (@Q_ID, N'{"L": "I can see", "R": "a rainbow."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 3 (LỚP 3)
+-- ==========================================================
+IF @U3 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U3, N'Nối từ và câu Unit 3 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Father", "R": "Bố"}', 1),
+    (@Q_ID, N'{"L": "Mother", "R": "Mẹ"}', 1),
+    (@Q_ID, N'{"L": "Brother", "R": "Anh/Em trai"}', 1),
+    (@Q_ID, N'{"L": "Sister", "R": "Chị/Em gái"}', 1),
+    (@Q_ID, N'{"L": "Grandfather", "R": "Ông"}', 1),
+    (@Q_ID, N'{"L": "Grandmother", "R": "Bà"}', 1),
+    (@Q_ID, N'{"L": "Parents", "R": "Bố mẹ"}', 1),
+    (@Q_ID, N'{"L": "Grandparents", "R": "Ông bà"}', 1),
+    (@Q_ID, N'{"L": "Tall", "R": "Cao"}', 1),
+    (@Q_ID, N'{"L": "Short", "R": "Thấp/Lùn"}', 1),
+    (@Q_ID, N'{"L": "Young", "R": "Trẻ"}', 1),
+    (@Q_ID, N'{"L": "Old", "R": "Già"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "Who''s this?", "R": "She is my mother."}', 1),
+    (@Q_ID, N'{"L": "Who''s he?", "R": "He is my father."}', 1),
+    (@Q_ID, N'{"L": "Who''s she?", "R": "She is my sister."}', 1),
+    (@Q_ID, N'{"L": "How many brothers do you have?", "R": "I have two brothers."}', 1),
+    (@Q_ID, N'{"L": "How many sisters do you have?", "R": "I have one sister."}', 1),
+    (@Q_ID, N'{"L": "The grandfather is", "R": "old."}', 1),
+    (@Q_ID, N'{"L": "The brother is", "R": "tall."}', 1),
+    (@Q_ID, N'{"L": "My family is", "R": "big."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 4 (LỚP 3)
+-- ==========================================================
+IF @U4 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U4, N'Nối từ và câu Unit 4 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Bedroom", "R": "Phòng ngủ"}', 1),
+    (@Q_ID, N'{"L": "Bathroom", "R": "Phòng tắm"}', 1),
+    (@Q_ID, N'{"L": "Kitchen", "R": "Nhà bếp"}', 1),
+    (@Q_ID, N'{"L": "Living room", "R": "Phòng khách"}', 1),
+    (@Q_ID, N'{"L": "Dining room", "R": "Phòng ăn"}', 1),
+    (@Q_ID, N'{"L": "Bed", "R": "Cái giường"}', 1),
+    (@Q_ID, N'{"L": "Sofa", "R": "Ghế sofa"}', 1),
+    (@Q_ID, N'{"L": "Table", "R": "Cái bàn"}', 1),
+    (@Q_ID, N'{"L": "Lamp", "R": "Đèn"}', 1),
+    (@Q_ID, N'{"L": "Toilet", "R": "Nhà vệ sinh/Bồn cầu"}', 1),
+    (@Q_ID, N'{"L": "Watch TV", "R": "Xem TV"}', 1),
+    (@Q_ID, N'{"L": "Wash dishes", "R": "Rửa bát"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "Is there a lamp in the bedroom?", "R": "Yes, there is."}', 1),
+    (@Q_ID, N'{"L": "Are there any chairs in the kitchen?", "R": "No, there aren''t."}', 1),
+    (@Q_ID, N'{"L": "Where are you?", "R": "I am at home."}', 1),
+    (@Q_ID, N'{"L": "Where are you?", "R": "I am in the living room."}', 1),
+    (@Q_ID, N'{"L": "What are you doing?", "R": "I am cooking."}', 1),
+    (@Q_ID, N'{"L": "What are you doing?", "R": "I am cleaning."}', 1),
+    (@Q_ID, N'{"L": "What is she doing?", "R": "She is watching TV."}', 1),
+    (@Q_ID, N'{"L": "What is he doing?", "R": "He is washing dishes."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 5 (LỚP 3)
+-- ==========================================================
+IF @U5 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U5, N'Nối từ và câu Unit 5 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Hat", "R": "Mũ"}', 1),
+    (@Q_ID, N'{"L": "Scarf", "R": "Khăn quàng"}', 1),
+    (@Q_ID, N'{"L": "Jacket", "R": "Áo khoác"}', 1),
+    (@Q_ID, N'{"L": "Shirt", "R": "Áo sơ mi"}', 1),
+    (@Q_ID, N'{"L": "Dress", "R": "Váy liền"}', 1),
+    (@Q_ID, N'{"L": "Skirt", "R": "Váy"}', 1),
+    (@Q_ID, N'{"L": "Pants", "R": "Quần dài"}', 1),
+    (@Q_ID, N'{"L": "Socks", "R": "Tất/Vớ"}', 1),
+    (@Q_ID, N'{"L": "Shoes", "R": "Giày"}', 1),
+    (@Q_ID, N'{"L": "Boots", "R": "Giày bốt/Ủng"}', 1),
+    (@Q_ID, N'{"L": "Gloves", "R": "Găng tay"}', 1),
+    (@Q_ID, N'{"L": "Closet", "R": "Tủ quần áo"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "What are you wearing?", "R": "I am wearing a jacket."}', 1),
+    (@Q_ID, N'{"L": "What are you wearing?", "R": "I am wearing shoes."}', 1),
+    (@Q_ID, N'{"L": "Are you wearing a hat?", "R": "Yes, I am."}', 1),
+    (@Q_ID, N'{"L": "Are you wearing gloves?", "R": "No, I am not."}', 1),
+    (@Q_ID, N'{"L": "This is my", "R": "scarf."}', 1),
+    (@Q_ID, N'{"L": "That is my", "R": "hat."}', 1),
+    (@Q_ID, N'{"L": "These are my", "R": "boots."}', 1),
+    (@Q_ID, N'{"L": "Those are my", "R": "socks."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 6 (LỚP 3)
+-- ==========================================================
+IF @U6 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U6, N'Nối từ và câu Unit 6 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Ball", "R": "Quả bóng"}', 1),
+    (@Q_ID, N'{"L": "Doll", "R": "Búp bê"}', 1),
+    (@Q_ID, N'{"L": "Robot", "R": "Rô-bốt"}', 1),
+    (@Q_ID, N'{"L": "Teddy bear", "R": "Gấu bông"}', 1),
+    (@Q_ID, N'{"L": "Kite", "R": "Cái diều"}', 1),
+    (@Q_ID, N'{"L": "Puzzle", "R": "Trò xếp hình"}', 1),
+    (@Q_ID, N'{"L": "Car", "R": "Ô tô đồ chơi"}', 1),
+    (@Q_ID, N'{"L": "Train", "R": "Tàu hỏa đồ chơi"}', 1),
+    (@Q_ID, N'{"L": "Truck", "R": "Xe tải đồ chơi"}', 1),
+    (@Q_ID, N'{"L": "Drum", "R": "Trống"}', 1),
+    (@Q_ID, N'{"L": "Bike", "R": "Xe đạp"}', 1),
+    (@Q_ID, N'{"L": "Yo-yo", "R": "Yo-yo"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "What do you want?", "R": "I want a ball."}', 1),
+    (@Q_ID, N'{"L": "What do you want?", "R": "I want a kite."}', 1),
+    (@Q_ID, N'{"L": "Do you want a robot?", "R": "Yes, I do."}', 1),
+    (@Q_ID, N'{"L": "Do you want a doll?", "R": "No, I don''t."}', 1),
+    (@Q_ID, N'{"L": "Is this your teddy bear?", "R": "Yes, it is."}', 1),
+    (@Q_ID, N'{"L": "Is this your car?", "R": "No, it isn''t."}', 1),
+    (@Q_ID, N'{"L": "Are these your balls?", "R": "Yes, they are."}', 1),
+    (@Q_ID, N'{"L": "Are these your trains?", "R": "No, they aren''t."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 7 (LỚP 3)
+-- ==========================================================
+IF @U7 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U7, N'Nối từ và câu Unit 7 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Head", "R": "Đầu"}', 1),
+    (@Q_ID, N'{"L": "Hair", "R": "Tóc"}', 1),
+    (@Q_ID, N'{"L": "Eye", "R": "Mắt"}', 1),
+    (@Q_ID, N'{"L": "Ear", "R": "Tai"}', 1),
+    (@Q_ID, N'{"L": "Nose", "R": "Mũi"}', 1),
+    (@Q_ID, N'{"L": "Mouth", "R": "Miệng"}', 1),
+    (@Q_ID, N'{"L": "Hand", "R": "Bàn tay"}', 1),
+    (@Q_ID, N'{"L": "Arm", "R": "Cánh tay"}', 1),
+    (@Q_ID, N'{"L": "Leg", "R": "Chân"}', 1),
+    (@Q_ID, N'{"L": "Foot", "R": "Bàn chân"}', 1),
+    (@Q_ID, N'{"L": "Run", "R": "Chạy"}', 1),
+    (@Q_ID, N'{"L": "Jump", "R": "Nhảy"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "These are my", "R": "hands."}', 1),
+    (@Q_ID, N'{"L": "Those are your", "R": "hands."}', 1),
+    (@Q_ID, N'{"L": "He has", "R": "curly hair."}', 1),
+    (@Q_ID, N'{"L": "She has", "R": "straight hair."}', 1),
+    (@Q_ID, N'{"L": "Can you run?", "R": "Yes, I can."}', 1),
+    (@Q_ID, N'{"L": "Can you jump?", "R": "No, I can''t."}', 1),
+    (@Q_ID, N'{"L": "Our hands are", "R": "small."}', 1),
+    (@Q_ID, N'{"L": "His eyes are", "R": "brown."}', 1);
+END
+
+-- ==========================================================
+-- UNIT 8 (LỚP 3)
+-- ==========================================================
+IF @U8 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U8, N'Nối từ và câu Unit 8 (Lớp 3)', 'matching', N'Pairs');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'{"L": "Apple", "R": "Táo"}', 1),
+    (@Q_ID, N'{"L": "Banana", "R": "Chuối"}', 1),
+    (@Q_ID, N'{"L": "Chicken", "R": "Gà"}', 1),
+    (@Q_ID, N'{"L": "Fish", "R": "Cá"}', 1),
+    (@Q_ID, N'{"L": "Rice", "R": "Cơm/Gạo"}', 1),
+    (@Q_ID, N'{"L": "Soup", "R": "Súp/Canh"}', 1),
+    (@Q_ID, N'{"L": "Sandwich", "R": "Bánh mì kẹp"}', 1),
+    (@Q_ID, N'{"L": "Milk", "R": "Sữa"}', 1),
+    (@Q_ID, N'{"L": "Water", "R": "Nước"}', 1),
+    (@Q_ID, N'{"L": "Orange juice", "R": "Nước cam"}', 1),
+    (@Q_ID, N'{"L": "Cookies", "R": "Bánh quy"}', 1),
+    (@Q_ID, N'{"L": "Eggs", "R": "Trứng"}', 1),
+    -- GRAMMAR
+    (@Q_ID, N'{"L": "What''s your favorite food?", "R": "I like apples."}', 1),
+    (@Q_ID, N'{"L": "Do you like bananas?", "R": "Yes, I do."}', 1),
+    (@Q_ID, N'{"L": "Do you like fish?", "R": "No, I don''t."}', 1),
+    (@Q_ID, N'{"L": "There is an", "R": "apple."}', 1),
+    (@Q_ID, N'{"L": "There is some", "R": "water."}', 1),
+    (@Q_ID, N'{"L": "There are some", "R": "eggs."}', 1),
+    (@Q_ID, N'{"L": "There are many", "R": "cookies."}', 1),
+    (@Q_ID, N'{"L": "There is a lot of", "R": "milk."}', 1);
+END
+
+PRINT N'✅ ĐÃ TẠO XONG ROUND 1 (MATCHING) CHO LỚP 3 (Dữ liệu Lớp 2 vẫn còn nguyên)!';
+GO
+
+
+USE GameHocTiengAnh1;
+GO
+
+PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 2 (SCRAMBLE) CHO LỚP 3 ===';
+
+-- KHAI BÁO BIẾN ID (TÌM THEO TÊN CHUẨN "Lớp 3 - ...")
+
+DECLARE @Q_ID INT;
+DECLARE @U0 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 0%');
+DECLARE @U1 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 1%');
+DECLARE @U2 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 2%');
+DECLARE @U3 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 3%');
+DECLARE @U4 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 4%');
+DECLARE @U5 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 5%');
+DECLARE @U6 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 6%');
+DECLARE @U7 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 7%');
+DECLARE @U8 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE N'Lớp 3 - Unit 8%');
+
+-- Kiểm tra xem có tìm thấy Topic không
+IF @U0 IS NULL PRINT N'⚠️ CẢNH BÁO: Không tìm thấy Topic Lớp 3! Hãy kiểm tra lại tên trong bảng Topics.';
+
+-- ==========================================================
+-- UNIT 0 (LỚP 3)
+-- ==========================================================
+IF @U0 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U0, N'Sắp xếp câu Unit 0 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'Hello my name is Nam', 1),
+    (@Q_ID, N'What is your name', 1),
+    (@Q_ID, N'My name is Lan', 1),
+    (@Q_ID, N'How are you today', 1),
+    (@Q_ID, N'I am fine thank you', 1),
+    (@Q_ID, N'Nice to meet you', 1),
+    (@Q_ID, N'Nice to meet you too', 1),
+    (@Q_ID, N'How old are you', 1),
+    (@Q_ID, N'I am eight years old', 1),
+    (@Q_ID, N'How do you spell your name', 1),
+    (@Q_ID, N'I spell it N A M', 1),
+    (@Q_ID, N'What color is it', 1),
+    (@Q_ID, N'It is red', 1),
+    (@Q_ID, N'It is blue', 1),
+    (@Q_ID, N'It is green', 1),
+    (@Q_ID, N'Please stand up', 1),
+    (@Q_ID, N'Please sit down', 1),
+    (@Q_ID, N'Thank you very much', 1),
+    (@Q_ID, N'Sorry I am late', 1),
+    (@Q_ID, N'Goodbye see you later', 1);
+END
+
+-- ==========================================================
+-- UNIT 1 (LỚP 3)
+-- ==========================================================
+IF @U1 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U1, N'Sắp xếp câu Unit 1 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'What is this', 1),
+    (@Q_ID, N'It is a book', 1),
+    (@Q_ID, N'What are these', 1),
+    (@Q_ID, N'They are pencils', 1),
+    (@Q_ID, N'How many pens are there', 1),
+    (@Q_ID, N'There are three pens', 1),
+    (@Q_ID, N'Open your book please', 1),
+    (@Q_ID, N'Close your book please', 1),
+    (@Q_ID, N'Where is the book', 1),
+    (@Q_ID, N'It is on the desk', 1),
+    (@Q_ID, N'Is this your backpack', 1),
+    (@Q_ID, N'Yes it is', 1),
+    (@Q_ID, N'Is that your ruler', 1),
+    (@Q_ID, N'No it is not', 1),
+    (@Q_ID, N'Give me your pencil please', 1),
+    (@Q_ID, N'Here you are', 1),
+    (@Q_ID, N'This is my eraser', 1),
+    (@Q_ID, N'That is my chair', 1),
+    (@Q_ID, N'The teacher is in the classroom', 1),
+    (@Q_ID, N'The window is open', 1);
+END
+
+-- ==========================================================
+-- UNIT 2 (LỚP 3)
+-- ==========================================================
+IF @U2 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U2, N'Sắp xếp câu Unit 2 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'What is it', 1),
+    (@Q_ID, N'It is a bird', 1),
+    (@Q_ID, N'Is it a frog', 1),
+    (@Q_ID, N'Yes it is', 1),
+    (@Q_ID, N'Is it a fish', 1),
+    (@Q_ID, N'No it is not', 1),
+    (@Q_ID, N'What are they', 1),
+    (@Q_ID, N'They are clouds', 1),
+    (@Q_ID, N'Where is the bird', 1),
+    (@Q_ID, N'It is in the tree', 1),
+    (@Q_ID, N'Where is the fish', 1),
+    (@Q_ID, N'It is in the river', 1),
+    (@Q_ID, N'The sky is blue', 1),
+    (@Q_ID, N'I can see the sun', 1),
+    (@Q_ID, N'I can see the moon', 1),
+    (@Q_ID, N'There is a rainbow', 1),
+    (@Q_ID, N'The flowers are beautiful', 1),
+    (@Q_ID, N'The tree is tall', 1),
+    (@Q_ID, N'The birds can fly', 1),
+    (@Q_ID, N'The fish can swim', 1);
+END
+
+-- ==========================================================
+-- UNIT 3 (LỚP 3)
+-- ==========================================================
+IF @U3 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U3, N'Sắp xếp câu Unit 3 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'Who is this', 1),
+    (@Q_ID, N'She is my mother', 1),
+    (@Q_ID, N'Who is he', 1),
+    (@Q_ID, N'He is my father', 1),
+    (@Q_ID, N'Who is she', 1),
+    (@Q_ID, N'She is my sister', 1),
+    (@Q_ID, N'Who is he', 1),
+    (@Q_ID, N'He is my brother', 1),
+    (@Q_ID, N'How many brothers do you have', 1),
+    (@Q_ID, N'I have two brothers', 1),
+    (@Q_ID, N'How many sisters do you have', 1),
+    (@Q_ID, N'I have one sister', 1),
+    (@Q_ID, N'My grandfather is old', 1),
+    (@Q_ID, N'My grandmother is kind', 1),
+    (@Q_ID, N'My brother is tall', 1),
+    (@Q_ID, N'My sister is young', 1),
+    (@Q_ID, N'This is my family', 1),
+    (@Q_ID, N'My family is big', 1),
+    (@Q_ID, N'I love my parents', 1),
+    (@Q_ID, N'We are happy together', 1);
+END
+
+-- ==========================================================
+-- UNIT 4 (LỚP 3)
+-- ==========================================================
+IF @U4 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U4, N'Sắp xếp câu Unit 4 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'Where are you', 1),
+    (@Q_ID, N'I am at home', 1),
+    (@Q_ID, N'Where are you', 1),
+    (@Q_ID, N'I am in the living room', 1),
+    (@Q_ID, N'Is there a lamp in the bedroom', 1),
+    (@Q_ID, N'Yes there is', 1),
+    (@Q_ID, N'Are there any chairs in the kitchen', 1),
+    (@Q_ID, N'No there are not', 1),
+    (@Q_ID, N'What are you doing', 1),
+    (@Q_ID, N'I am cooking', 1),
+    (@Q_ID, N'What are you doing', 1),
+    (@Q_ID, N'I am cleaning', 1),
+    (@Q_ID, N'What is he doing', 1),
+    (@Q_ID, N'He is washing dishes', 1),
+    (@Q_ID, N'What is she doing', 1),
+    (@Q_ID, N'She is watching TV', 1),
+    (@Q_ID, N'The kitchen is small', 1),
+    (@Q_ID, N'The bedroom is big', 1),
+    (@Q_ID, N'This is my house', 1),
+    (@Q_ID, N'I love my home', 1);
+END
+
+-- ==========================================================
+-- UNIT 5 (LỚP 3)
+-- ==========================================================
+IF @U5 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U5, N'Sắp xếp câu Unit 5 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'What are you wearing', 1),
+    (@Q_ID, N'I am wearing a jacket', 1),
+    (@Q_ID, N'I am wearing shoes', 1),
+    (@Q_ID, N'Are you wearing a hat', 1),
+    (@Q_ID, N'Yes I am', 1),
+    (@Q_ID, N'Are you wearing gloves', 1),
+    (@Q_ID, N'No I am not', 1),
+    (@Q_ID, N'This is my scarf', 1),
+    (@Q_ID, N'That is my hat', 1),
+    (@Q_ID, N'These are my boots', 1),
+    (@Q_ID, N'Those are my socks', 1),
+    (@Q_ID, N'I have a new dress', 1),
+    (@Q_ID, N'He has a blue shirt', 1),
+    (@Q_ID, N'She has a red skirt', 1),
+    (@Q_ID, N'I put my clothes in the closet', 1),
+    (@Q_ID, N'The jacket is warm', 1),
+    (@Q_ID, N'The shoes are black', 1),
+    (@Q_ID, N'The hat is nice', 1),
+    (@Q_ID, N'I like my clothes', 1),
+    (@Q_ID, N'Let us go outside', 1);
+END
+
+-- ==========================================================
+-- UNIT 6 (LỚP 3)
+-- ==========================================================
+IF @U6 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U6, N'Sắp xếp câu Unit 6 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'What do you want', 1),
+    (@Q_ID, N'I want a ball', 1),
+    (@Q_ID, N'I want a kite', 1),
+    (@Q_ID, N'Do you want a robot', 1),
+    (@Q_ID, N'Yes I do', 1),
+    (@Q_ID, N'Do you want a doll', 1),
+    (@Q_ID, N'No I do not', 1),
+    (@Q_ID, N'Is this your teddy bear', 1),
+    (@Q_ID, N'Yes it is', 1),
+    (@Q_ID, N'Is this your car', 1),
+    (@Q_ID, N'No it is not', 1),
+    (@Q_ID, N'Are these your balls', 1),
+    (@Q_ID, N'Yes they are', 1),
+    (@Q_ID, N'Are these your trains', 1),
+    (@Q_ID, N'No they are not', 1),
+    (@Q_ID, N'I have a new puzzle', 1),
+    (@Q_ID, N'The robot is cool', 1),
+    (@Q_ID, N'The doll is pretty', 1),
+    (@Q_ID, N'I like my toys', 1),
+    (@Q_ID, N'Let us play together', 1);
+END
+
+-- ==========================================================
+-- UNIT 7 (LỚP 3)
+-- ==========================================================
+IF @U7 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U7, N'Sắp xếp câu Unit 7 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'This is my head', 1),
+    (@Q_ID, N'These are my hands', 1),
+    (@Q_ID, N'Those are your hands', 1),
+    (@Q_ID, N'He has curly hair', 1),
+    (@Q_ID, N'She has straight hair', 1),
+    (@Q_ID, N'His eyes are brown', 1),
+    (@Q_ID, N'Her eyes are black', 1),
+    (@Q_ID, N'Can you run', 1),
+    (@Q_ID, N'Yes I can', 1),
+    (@Q_ID, N'Can you jump', 1),
+    (@Q_ID, N'No I cannot', 1),
+    (@Q_ID, N'I can walk', 1),
+    (@Q_ID, N'I can swim', 1),
+    (@Q_ID, N'Wash your hands', 1),
+    (@Q_ID, N'Brush your teeth', 1),
+    (@Q_ID, N'Touch your nose', 1),
+    (@Q_ID, N'Clap your hands', 1),
+    (@Q_ID, N'Stamp your feet', 1),
+    (@Q_ID, N'My body is strong', 1),
+    (@Q_ID, N'We should exercise every day', 1);
+END
+
+-- ==========================================================
+-- UNIT 8 (LỚP 3)
+-- ==========================================================
+IF @U8 IS NOT NULL
+BEGIN
+    INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+    VALUES (@U8, N'Sắp xếp câu Unit 8 (Lớp 3)', 'scramble', N'Sentences');
+    SET @Q_ID = SCOPE_IDENTITY();
+
+    INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+    (@Q_ID, N'What is your favorite food', 1),
+    (@Q_ID, N'I like apples', 1),
+    (@Q_ID, N'Do you like bananas', 1),
+    (@Q_ID, N'Yes I do', 1),
+    (@Q_ID, N'Do you like fish', 1),
+    (@Q_ID, N'No I do not', 1),
+    (@Q_ID, N'I want some water', 1),
+    (@Q_ID, N'I drink milk every day', 1),
+    (@Q_ID, N'I eat rice for lunch', 1),
+    (@Q_ID, N'There is an apple on the table', 1),
+    (@Q_ID, N'There are some eggs', 1),
+    (@Q_ID, N'There are many cookies', 1),
+    (@Q_ID, N'There is a lot of milk', 1),
+    (@Q_ID, N'There is some soup', 1),
+    (@Q_ID, N'I like orange juice', 1),
+    (@Q_ID, N'He likes chicken', 1),
+    (@Q_ID, N'She likes fish', 1),
+    (@Q_ID, N'Let us eat together', 1),
+    (@Q_ID, N'Do not eat too many cookies', 1),
+    (@Q_ID, N'Food is good for our health', 1);
+END
+
+PRINT N'✅ ĐÃ TẠO XONG 180 CÂU SẮP XẾP (ROUND 2) CHO LỚP 3!';
+GO
+
+USE GameHocTiengAnh1;
+GO
+
+PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 3 (TRẮC NGHIỆM) - LỚP 3 ===';
+
+IF OBJECT_ID('tempdb..#AddQuiz') IS NOT NULL DROP PROCEDURE #AddQuiz;
+GO
+
+CREATE PROCEDURE #AddQuiz
+    @UnitName NVARCHAR(100), -- VD: 'Lớp 3 - Unit 0'
+    @QuestionText NVARCHAR(MAX),
+    @CorrectAns NVARCHAR(255),
+    @Wrong1 NVARCHAR(255),
+    @Wrong2 NVARCHAR(255),
+    @Wrong3 NVARCHAR(255)
+AS
+BEGIN
+    -- Tìm đúng tên Topic bắt đầu bằng @UnitName
+    DECLARE @TopicID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE @UnitName + N'%');
+    DECLARE @QID INT;
+
+    IF @TopicID IS NOT NULL
+    BEGIN
+        INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+        VALUES (@TopicID, @QuestionText, 'multiple_choice', @CorrectAns);
+
+        SET @QID = SCOPE_IDENTITY();
+
+        INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES
+        (@QID, @CorrectAns, 1),
+        (@QID, @Wrong1, 0),
+        (@QID, @Wrong2, 0),
+        (@QID, @Wrong3, 0);
+    END
+    ELSE
+    BEGIN
+        PRINT N'⚠️ Lỗi: Không tìm thấy Topic tên là: ' + @UnitName;
+    END
+END;
+GO
+
+-- ======================================================================================
+-- 3. BẮT ĐẦU NẠP DỮ LIỆU (SỬ DỤNG TÊN CHUẨN: 'Lớp 3 - Unit...')
+-- ======================================================================================
+
+PRINT N'--- Đang nạp Unit 0: Greetings & Basic Classroom ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct greeting.', N'Hello!', N'Good night!', N'Goodbye!', N'Sorry!';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'What is your name?', N'My name is Nam.', N'I am fine.', N'I am eight.', N'It is a book.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'How are you?', N'I am fine, thank you.', N'My name is Lan.', N'Yes, I do.', N'It is red.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'How old are you?', N'I am eight years old.', N'I am Nam.', N'I like apples.', N'It is on the desk.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Nice to meet you.', N'Nice to meet you, too.', N'Good morning!', N'Yes, please.', N'No, thanks.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct farewell.', N'Goodbye. See you later.', N'Hello! How are you?', N'I am fine.', N'My name is Minh.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'How do you spell NAM?', N'N - A - M', N'N - O - M', N'M - A - N', N'A - N - M';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'What color is it? (Red)', N'It is red.', N'It is a pen.', N'I am nine.', N'Yes, I am.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the polite word.', N'Please', N'Blue', N'Chair', N'Water';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the polite answer to "Thank you".', N'You are welcome.', N'How are you?', N'Goodbye!', N'My name is Hoa.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'In class, the teacher says: "____ down."', N'Sit', N'Sing', N'Swim', N'Fly';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'In class, the teacher says: "____ up."', N'Stand', N'Open', N'Close', N'Look';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct question form.', N'What is your name?', N'What your name is?', N'What is name your?', N'Your name what is?';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct answer: "How are you?"', N'I am OK.', N'It is a ruler.', N'In the kitchen.', N'Nine books.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct sentence.', N'I am seven years old.', N'I seven years old am.', N'Old years seven I am.', N'I am old seven years.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Sorry, I am late. (Teacher says)', N'It is OK.', N'Good night!', N'Yes, please.', N'No, it is not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct color word.', N'green', N'window', N'books', N'watch';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct response: "Good morning!"', N'Good morning!', N'Goodbye!', N'I am ten.', N'It is blue.';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct question: ask age.', N'How old are you?', N'How are you?', N'What is this?', N'Where are you?';
+EXEC #AddQuiz N'Lớp 3 - Unit 0', N'Choose the correct answer: "What color is it?"', N'It is blue.', N'It is a desk.', N'It is my mother.', N'I am fine.';
+
+
+PRINT N'--- Đang nạp Unit 1: My Classroom ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'What is this?', N'It is a book.', N'It is red.', N'I am eight.', N'In the kitchen.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'What are these?', N'They are pencils.', N'It is a pencil.', N'This is a pencil.', N'It is on the desk.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct plural form.', N'pencils', N'pencil', N'penciling', N'penciled';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Where is the book?', N'It is on the desk.', N'It is a desk.', N'It is blue.', N'Yes, it is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'How many pens are there? (3)', N'There are three pens.', N'There is three pens.', N'They are three pen.', N'There are pen three.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct command: open.', N'Open your book, please.', N'Close your book, please.', N'Sit down, please.', N'Stand up, please.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct command: close.', N'Close your book, please.', N'Open your book, please.', N'Listen to music.', N'Go to the park.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Is this your ruler?', N'Yes, it is.', N'Yes, I do.', N'No, I am not.', N'They are rulers.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Is that your backpack?', N'No, it is not.', N'No, I do not.', N'Yes, I am.', N'Yes, they are.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct word: "____ you are."', N'Here', N'Where', N'What', N'When';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'This is my _____. (rubber)', N'eraser', N'river', N'brother', N'flower';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'That is my _____. (chair)', N'chair', N'cheer', N'chest', N'cheap';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct question for many things.', N'What are these?', N'What is this?', N'How old are you?', N'Where are you?';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct word: "on" (It is ____ the desk.)', N'on', N'in', N'under', N'with';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'The teacher is in the _____.', N'classroom', N'bathroom', N'bedroom', N'kitchen';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct sentence.', N'This is a pen.', N'This are a pen.', N'These is a pen.', N'They is a pen.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct sentence.', N'These are books.', N'This are books.', N'These is books.', N'This is books.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Where is the pencil?', N'It is under the chair.', N'It is a chair.', N'It is green.', N'Yes, it is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'Choose the correct word: "a ____ of paper"', N'piece', N'bottle', N'loaf', N'can';
+EXEC #AddQuiz N'Lớp 3 - Unit 1', N'The window is _____.', N'open', N'old', N'orange', N'only';
+
+
+PRINT N'--- Đang nạp Unit 2: Nature & Animals ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'What is it? (a bird)', N'It is a bird.', N'It is a fish.', N'It is a frog.', N'It is a cat.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Where is the bird?', N'It is in the tree.', N'It is on the desk.', N'It is in the bag.', N'It is under the bed.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Where is the fish?', N'It is in the river.', N'It is in the sky.', N'It is in the tree.', N'It is on the roof.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct sentence.', N'The sky is blue.', N'The sky are blue.', N'The sky is book.', N'The sky blue is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct word: "clouds" are in the _____.', N'sky', N'river', N'kitchen', N'chair';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'I can see the ____ at night.', N'moon', N'sun', N'flower', N'chair';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'I can see the ____ in the morning.', N'sun', N'moon', N'stars', N'rainbow';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Birds can _____.', N'fly', N'swim', N'cook', N'drive';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Fish can _____.', N'swim', N'fly', N'jump', N'sing';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Frogs can _____.', N'jump', N'fly', N'draw', N'read';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct question.', N'Is it a frog?', N'Are it a frog?', N'Is a frog it?', N'It is a frog?';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct short answer: "Is it a fish?" (Yes)', N'Yes, it is.', N'Yes, I do.', N'Yes, they are.', N'Yes, I am.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct short answer: "Is it a fish?" (No)', N'No, it is not.', N'No, I do not.', N'No, they are not.', N'No, I am not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'The flowers are _____.', N'beautiful', N'busy', N'boring', N'bitter';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'The tree is _____.', N'tall', N'taste', N'toy', N'today';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct word: "in" (The bird is ____ the tree.)', N'in', N'on', N'under', N'with';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct word: "in" (The fish is ____ the water.)', N'in', N'on', N'of', N'at';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'What are they? (clouds)', N'They are clouds.', N'It is clouds.', N'This is clouds.', N'They is cloud.';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct word: "rainbow" is in the _____.', N'sky', N'bag', N'book', N'desk';
+EXEC #AddQuiz N'Lớp 3 - Unit 2', N'Choose the correct animal: It can fly.', N'bird', N'fish', N'frog', N'turtle';
+
+
+PRINT N'--- Đang nạp Unit 3: My Family ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Who is this? (mother)', N'She is my mother.', N'He is my mother.', N'She is my father.', N'It is my mother.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Who is this? (father)', N'He is my father.', N'She is my father.', N'He is my sister.', N'They are my father.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Who is she? (sister)', N'She is my sister.', N'He is my sister.', N'She is my brother.', N'It is my sister.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Who is he? (brother)', N'He is my brother.', N'She is my brother.', N'He is my mother.', N'It is my brother.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'How many brothers do you have? (2)', N'I have two brothers.', N'I have two brother.', N'I has two brothers.', N'I have brothers two.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'How many sisters do you have? (1)', N'I have one sister.', N'I have one sisters.', N'I has one sister.', N'I have sister one.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'My ____ is old. (grandfather)', N'grandfather', N'grandmother', N'brother', N'sister';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'My ____ is kind. (grandmother)', N'grandmother', N'grandfather', N'father', N'mother';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'This is ____ family.', N'my', N'I', N'me', N'mine';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'I love my _____.', N'parents', N'pencils', N'windows', N'clouds';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct sentence.', N'My family is big.', N'My family are big.', N'My family big is.', N'Family my is big.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct pronoun: mother -> ____', N'she', N'he', N'it', N'they';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct pronoun: father -> ____', N'he', N'she', N'it', N'they';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'We are happy _____.', N'together', N'tomorrow', N'turtle', N'table';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct word: "This is ____ (Lan)."', N'Lan', N'her', N'she', N'they';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct question: ask a person.', N'Who is he?', N'What is he?', N'Where is he?', N'How is he old?';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct answer: "Who is she?"', N'She is my mother.', N'It is a chair.', N'In the kitchen.', N'It is red.';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'Choose the correct word: brother/sister are _____.', N'children', N'parents', N'grandparents', N'teachers';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'My brother is _____. (tall)', N'tall', N'table', N'taste', N'time';
+EXEC #AddQuiz N'Lớp 3 - Unit 3', N'My sister is _____. (young)', N'young', N'yellow', N'yesterday', N'yummy';
+
+
+PRINT N'--- Đang nạp Unit 4: My House ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Where are you?', N'I am at home.', N'I am eight.', N'It is a pen.', N'Yes, it is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Where are you? (living room)', N'I am in the living room.', N'I am on the living room.', N'I am living room.', N'I am at living room.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose the room for sleeping.', N'bedroom', N'kitchen', N'bathroom', N'classroom';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose the room for cooking.', N'kitchen', N'bedroom', N'library', N'gym';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Is there a lamp in the bedroom?', N'Yes, there is.', N'Yes, it is.', N'Yes, they are.', N'Yes, I do.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Are there any chairs in the kitchen? (No)', N'No, there are not.', N'No, it is not.', N'No, I do not.', N'No, she is not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'What are you doing? (cook)', N'I am cooking.', N'I cooking am.', N'I am cook.', N'I cooked.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'What are you doing? (clean)', N'I am cleaning.', N'I am clean.', N'I cleaned.', N'I am cleans.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'What is she doing?', N'She is watching TV.', N'She watching TV.', N'She is watch TV.', N'She watched TV.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'What is he doing?', N'He is washing dishes.', N'He washing dishes.', N'He is wash dishes.', N'He washed dish.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose the correct preposition: The cat is ____ the table. (under)', N'under', N'on', N'in', N'with';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose the correct preposition: The book is ____ the desk. (on)', N'on', N'under', N'in', N'behind';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'The kitchen is _____.', N'small', N'smell', N'smile', N'smart';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'The bedroom is _____.', N'big', N'bag', N'bug', N'bus';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose the correct sentence.', N'This is my house.', N'This are my house.', N'These is my house.', N'This is my houses.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'I love my _____.', N'home', N'helmet', N'honey', N'happy';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose "There is" for ____ noun.', N'one', N'many', N'two', N'three';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Choose "There are" for ____ noun.', N'many', N'one', N'a', N'an';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Is there a sofa?', N'Yes, there is.', N'Yes, there are.', N'Yes, I am.', N'Yes, they do.';
+EXEC #AddQuiz N'Lớp 3 - Unit 4', N'Are there two windows?', N'Yes, there are.', N'Yes, there is.', N'Yes, I am.', N'Yes, it is.';
+
+
+PRINT N'--- Đang nạp Unit 5: Clothes ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'What are you wearing?', N'I am wearing a jacket.', N'I am wear a jacket.', N'I wearing am a jacket.', N'I wore a jacket.';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Choose the correct word: shoes', N'shoes', N'shooes', N'shoos', N'shoose';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Are you wearing a hat? (Yes)', N'Yes, I am.', N'Yes, I do.', N'Yes, it is.', N'Yes, they are.';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Are you wearing gloves? (No)', N'No, I am not.', N'No, I do not.', N'No, it is not.', N'No, they are not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'This is my _____. (scarf)', N'scarf', N'sky', N'school', N'soup';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Those are my _____. (socks)', N'socks', N'stocks', N'stars', N'stops';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'These are my _____. (boots)', N'boots', N'books', N'birds', N'balls';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'He has a blue _____.', N'shirt', N'short', N'shark', N'shelf';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'She has a red _____.', N'skirt', N'sky', N'skill', N'skull';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'The jacket is _____.', N'warm', N'water', N'wash', N'wall';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Choose the correct color.', N'black', N'block', N'blank', N'blink';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Put your clothes in the _____.', N'closet', N'cloud', N'class', N'clap';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'I have a new _____. (dress)', N'dress', N'desk', N'dream', N'drink';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Choose the correct sentence.', N'I am wearing shoes.', N'I am wearing shoe.', N'I wear wearing shoes.', N'I wearing shoes am.';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Choose the correct question.', N'What are you wearing?', N'What you are wearing?', N'Wearing what are you?', N'What wearing you are?';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'The hat is _____. (nice)', N'nice', N'nine', N'net', N'new';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'I like my _____.', N'clothes', N'clouds', N'classes', N'closes';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Choose the correct word: "a ____ of shoes" (pair)', N'pair', N'piece', N'loaf', N'bottle';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Choose the correct answer: "What color is your shirt?"', N'It is blue.', N'It is a shirt.', N'Yes, it is.', N'I am fine.';
+EXEC #AddQuiz N'Lớp 3 - Unit 5', N'Let us go _____.', N'outside', N'inside', N'under', N'behind';
+
+
+PRINT N'--- Đang nạp Unit 6: Toys ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'What do you want?', N'I want a ball.', N'I want ball a.', N'I am want a ball.', N'I wanted a ball.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Do you want a robot? (Yes)', N'Yes, I do.', N'Yes, I am.', N'Yes, it is.', N'Yes, there is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Do you want a doll? (No)', N'No, I do not.', N'No, I am not.', N'No, it is not.', N'No, there are not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Is this your teddy bear? (Yes)', N'Yes, it is.', N'Yes, I do.', N'Yes, they are.', N'Yes, I am.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Are these your balls? (Yes)', N'Yes, they are.', N'Yes, it is.', N'Yes, I do.', N'Yes, I am.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Are these your trains? (No)', N'No, they are not.', N'No, it is not.', N'No, I do not.', N'No, I am not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'I have a new _____. (puzzle)', N'puzzle', N'purple', N'pocket', N'people';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'The robot is _____.', N'cool', N'cook', N'cold', N'cloud';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'The doll is _____.', N'pretty', N'prey', N'price', N'print';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct toy: It can fly in the sky.', N'kite', N'ball', N'doll', N'robot';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct toy: You can kick it.', N'ball', N'kite', N'doll', N'puzzle';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct sentence.', N'Let us play together.', N'Let play us together.', N'Let us together play.', N'Let together us play.';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct word: "This is ____ toy."', N'my', N'me', N'I', N'mine';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct question for one thing.', N'Is this your car?', N'Are this your car?', N'Is these your car?', N'Are those your car?';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct question for many things.', N'Are these your toys?', N'Is these your toys?', N'Are this your toys?', N'Is that your toys?';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct answer: "Here you are."', N'Thank you.', N'How are you?', N'Good night.', N'What is this?';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct word: "toy" plural is _____.', N'toys', N'toyes', N'toies', N'toy';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'I want ____ robot.', N'a', N'an', N'some', N'any';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'I want ____ apples. (many)', N'some', N'a', N'an', N'is';
+EXEC #AddQuiz N'Lớp 3 - Unit 6', N'Choose the correct word: teddy ____', N'bear', N'beer', N'bean', N'beak';
+
+
+PRINT N'--- Đang nạp Unit 7: My Body ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'This is my _____. (head)', N'head', N'heart', N'heat', N'hand';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'These are my _____. (hands)', N'hands', N'hand', N'heads', N'hairs';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'These are my _____. (feet)', N'feet', N'foots', N'foot', N'fits';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'He has curly _____.', N'hair', N'hear', N'here', N'heart';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'She has straight _____.', N'hair', N'hat', N'hand', N'head';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'His eyes are _____. (brown)', N'brown', N'blue', N'green', N'yellow';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Can you run?', N'Yes, I can.', N'Yes, I do.', N'Yes, I am.', N'Yes, it is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Can you jump? (No)', N'No, I cannot.', N'No, I do not.', N'No, I am not.', N'No, it is not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Choose the correct sentence.', N'I can swim.', N'I can swims.', N'I am can swim.', N'I swim can.';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Wash your _____.', N'hands', N'ears', N'eyes', N'hair';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Brush your _____.', N'teeth', N'tooth', N'teath', N'trees';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Touch your _____.', N'nose', N'noise', N'notes', N'neck';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Clap your _____.', N'hands', N'head', N'feet', N'eyes';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Stamp your _____.', N'feet', N'hands', N'eyes', N'nose';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Choose the correct sentence.', N'My body is strong.', N'My body are strong.', N'My body strong is.', N'Body my is strong.';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'We should exercise every _____.', N'day', N'dog', N'desk', N'door';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Choose the body part: we see with our _____.', N'eyes', N'ears', N'nose', N'hands';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Choose the body part: we hear with our _____.', N'ears', N'eyes', N'mouth', N'feet';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Choose the body part: we smell with our _____.', N'nose', N'eyes', N'ears', N'hands';
+EXEC #AddQuiz N'Lớp 3 - Unit 7', N'Choose the correct word: "mouth"', N'mouth', N'mouse', N'month', N'math';
+
+
+PRINT N'--- Đang nạp Unit 8: Food & Drinks ---';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'What is your favorite food?', N'I like apples.', N'I am apples.', N'It is apples.', N'Yes, I am.';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Do you like bananas? (Yes)', N'Yes, I do.', N'Yes, I am.', N'Yes, it is.', N'Yes, there is.';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Do you like fish? (No)', N'No, I do not.', N'No, I am not.', N'No, it is not.', N'No, there are not.';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'I want ____ water.', N'some', N'a', N'an', N'many';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'I drink ____ every day. (milk)', N'milk', N'meal', N'meet', N'make';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'I eat rice for _____.', N'lunch', N'blue', N'chair', N'class';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'There is ____ apple on the table.', N'an', N'a', N'some', N'any';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'There are ____ eggs.', N'some', N'a', N'an', N'is';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the correct: There ____ a banana.', N'is', N'are', N'am', N'be';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the correct: There ____ two bananas.', N'are', N'is', N'am', N'be';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the correct question for uncountable.', N'Is there any water?', N'Are there any water?', N'Is there a water?', N'Are there a water?';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the correct question for countable plural.', N'Are there any cookies?', N'Is there any cookies?', N'Are there a cookies?', N'Is there a cookies?';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Don''t eat too ____ cookies.', N'many', N'much', N'a', N'an';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Don''t drink too ____ soda.', N'much', N'many', N'two', N'few';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the drink.', N'water', N'bread', N'rice', N'egg';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the fruit.', N'apple', N'chicken', N'rice', N'soup';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Choose the correct sentence.', N'Food is good for our health.', N'Food are good for our health.', N'Food good is health.', N'Food is good our for health.';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'He likes _____. (chicken)', N'chicken', N'kitchen', N'children', N'chocolate';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'She likes _____. (fish)', N'fish', N'finish', N'fishes', N'fishing';
+EXEC #AddQuiz N'Lớp 3 - Unit 8', N'Let us eat _____.', N'together', N'tomorrow', N'turtle', N'table';
+
+-- XÓA THỦ TỤC TẠM
+DROP PROCEDURE #AddQuiz;
+
+PRINT N'✅ ĐÃ TẠO XONG 180 CÂU TRẮC NGHIỆM (ROUND 3) - LỚP 3!';
+GO
+
+USE GameHocTiengAnh1;
+GO
+
+PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 4 (ĐIỀN TỪ) - LỚP 3 ===';
+
+
+IF OBJECT_ID('tempdb..#AddFillBlank') IS NOT NULL DROP PROCEDURE #AddFillBlank;
+GO
+
+CREATE PROCEDURE #AddFillBlank
+    @UnitName NVARCHAR(100),
+    @Sentence NVARCHAR(MAX),
+    @CorrectAns NVARCHAR(255),
+    @Wrong1 NVARCHAR(255),
+    @Wrong2 NVARCHAR(255),
+    @Wrong3 NVARCHAR(255)
+AS
+BEGIN
+    -- Sửa lại: Tìm tên Topic bắt đầu bằng @UnitName
+    DECLARE @TopicID INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE @UnitName + N'%');
+    DECLARE @QID INT;
+
+    IF @TopicID IS NOT NULL
+    BEGIN
+        INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+        VALUES (@TopicID, @Sentence, 'fill_in_blank', @CorrectAns);
+        
+        SET @QID = SCOPE_IDENTITY();
+
+        INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES 
+        (@QID, @CorrectAns, 1),
+        (@QID, @Wrong1, 0),
+        (@QID, @Wrong2, 0),
+        (@QID, @Wrong3, 0);
+    END
+    ELSE
+    BEGIN
+        PRINT N'⚠️ Lỗi: Không tìm thấy Topic tên là: ' + @UnitName;
+    END
+END;
+GO
+
+-- ======================================================================================
+-- 3. NẠP DỮ LIỆU (SỬ DỤNG TÊN CHUẨN: 'Lớp 3 - Unit...')
+-- ======================================================================================
+
+PRINT N'--- Unit 0: Getting Started ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'The weather is hot in ______.', N'summer', N'winter', N'spring', N'fall';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'Leaves fall from trees in ______.', N'autumn', N'summer', N'spring', N'winter';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'It is ______ and snowy in winter.', N'cold', N'hot', N'warm', N'dry';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'There are twelve ______ in a year.', N'months', N'weeks', N'days', N'seasons';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'My birthday is ______ May.', N'in', N'on', N'at', N'of';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'What is the weather ______ today?', N'like', N'is', N'look', N'love';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'Ten plus ten is ______.', N'twenty', N'thirty', N'ten', N'forty';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'I like to go swimming in the ______ season.', N'dry', N'rainy', N'cold', N'snowy';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'We wear coats when it is ______.', N'cold', N'hot', N'sunny', N'warm';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'______ is the first month.', N'January', N'February', N'December', N'March';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'Flowers bloom in ______.', N'spring', N'winter', N'autumn', N'night';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'One hundred ______ fifty is fifty.', N'minus', N'plus', N'times', N'and';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'Is your birthday in June? - No, it ______.', N'isn''t', N'is', N'not', N'aren''t';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'Do you like sunny weather? - Yes, I ______.', N'do', N'am', N'don''t', N'does';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'The ______ season has a lot of rain.', N'rainy', N'dry', N'hot', N'cold';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'March, April, and May are in ______.', N'spring', N'summer', N'winter', N'fall';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'It is usually ______ in the desert.', N'hot', N'cold', N'wet', N'snowy';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'______ comes after August.', N'September', N'July', N'October', N'June';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'Twenty plus ______ is thirty.', N'ten', N'five', N'twenty', N'one';
+EXEC #AddFillBlank N'Lớp 3 - Unit 0', N'I make a snowman in ______.', N'winter', N'summer', N'fall', N'spring';
+
+PRINT N'--- Unit 1: Animal Habitats ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'A camel lives in the ______.', N'desert', N'sea', N'forest', N'cave';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Polar bears live in the ______ region.', N'polar', N'hot', N'rainy', N'dry';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Fish swim in the ______.', N'water', N'sky', N'sand', N'tree';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Birds build ______ in trees.', N'nests', N'caves', N'hives', N'holes';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Bees live in a ______.', N'hive', N'nest', N'cave', N'house';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'A giraffe has a long ______.', N'neck', N'nose', N'ear', N'hand';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Elephants use their ______ to drink water.', N'trunks', N'ears', N'tails', N'legs';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'A kangaroo has a ______ for its baby.', N'pouch', N'bag', N'box', N'pocket';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Monkeys can ______ trees.', N'climb', N'fly', N'swim', N'run';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Penguins cannot ______.', N'fly', N'swim', N'walk', N'jump';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Bats sleep in ______ during the day.', N'caves', N'nests', N'hives', N'water';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Crocodiles have sharp ______.', N'teeth', N'hair', N'ears', N'hands';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'The ocean is very ______.', N'deep', N'high', N'tall', N'dry';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Tigers have ______ on their bodies.', N'stripes', N'spots', N'dots', N'squares';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'A ______ moves very slowly.', N'turtle', N'rabbit', N'cat', N'dog';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Hippos like to play in the ______.', N'mud', N'sky', N'tree', N'bed';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Birds have wings and ______.', N'feathers', N'fur', N'scales', N'skin';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Goats have two ______ on their heads.', N'horns', N'tails', N'noses', N'wings';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'We must ______ the animals.', N'protect', N'hurt', N'hit', N'scare';
+EXEC #AddFillBlank N'Lớp 3 - Unit 1', N'Sharks live in the ______.', N'ocean', N'river', N'pond', N'pool';
+
+PRINT N'--- Unit 2: Let''s Eat! ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'I would like a ______ of noodles.', N'bowl', N'box', N'bag', N'book';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Can I have a ______ of water?', N'bottle', N'piece', N'loaf', N'slice';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'This lemon tastes ______.', N'sour', N'sweet', N'spicy', N'salty';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Chili peppers are very ______.', N'spicy', N'sweet', N'cold', N'bitter';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'I want a ______ of cereal.', N'box', N'bottle', N'can', N'tube';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Would you like ______ beans?', N'some', N'a', N'an', N'one';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Is there ______ milk in the fridge?', N'any', N'many', N'a', N'some';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'No, there aren''t ______ eggs.', N'any', N'some', N'much', N'little';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Potato chips are usually ______.', N'salty', N'sweet', N'sour', N'bitter';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Candy and chocolate are ______.', N'sweet', N'spicy', N'sour', N'salty';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'May I have a ______ of pizza?', N'slice', N'bowl', N'bottle', N'jar';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'A ______ of bread.', N'loaf', N'can', N'box', N'bottle';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'I am hungry. I want to ______.', N'eat', N'drink', N'sleep', N'run';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'I am thirsty. I need ______.', N'water', N'food', N'bread', N'meat';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Can you pass me the ______?', N'salt', N'rain', N'wind', N'sun';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Do not eat too much ______.', N'sugar', N'water', N'vegetable', N'fruit';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Coffee without milk is ______.', N'bitter', N'sweet', N'salty', N'sour';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'My favorite food is ______.', N'chicken', N'water', N'juice', N'milk';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'We need a ______ of oil.', N'bottle', N'box', N'bag', N'basket';
+EXEC #AddFillBlank N'Lớp 3 - Unit 2', N'Let''s make a ______.', N'cake', N'water', N'milk', N'juice';
+
+PRINT N'--- Unit 3: On the Move! ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'I go to school ______ bus.', N'by', N'on', N'in', N'at';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'We walk on the ______.', N'sidewalk', N'street', N'road', N'river';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'My father ______ a car to work.', N'drives', N'rides', N'flies', N'walks';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'I ______ my bicycle in the park.', N'ride', N'drive', N'run', N'fly';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'A ______ flies in the sky.', N'plane', N'bus', N'train', N'boat';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'The ______ runs on tracks.', N'train', N'car', N'bus', N'taxi';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'We took a ______ across the river.', N'ferry', N'bike', N'scooter', N'truck';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'You must ______ at the red light.', N'stop', N'go', N'run', N'walk';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'Always wear a ______ on a motorbike.', N'helmet', N'hat', N'cap', N'mask';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'The subway goes ______ ground.', N'under', N'on', N'above', N'in';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'We get ______ the bus at the station.', N'off', N'out', N'away', N'over';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'How ______ do you ride your bike?', N'often', N'many', N'much', N'time';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'I go to school on ______.', N'foot', N'leg', N'hand', N'head';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'Boats ______ on water.', N'sail', N'drive', N'ride', N'run';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'A helicopter has ______ on top.', N'blades', N'wings', N'wheels', N'doors';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'Is it safe? - Yes, it ______.', N'is', N'isn''t', N'does', N'do';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'Traffic lights have ______ colors.', N'three', N'two', N'four', N'five';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'Green light means ______.', N'go', N'stop', N'wait', N'slow';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'I sit ______ the car.', N'in', N'on', N'at', N'under';
+EXEC #AddFillBlank N'Lớp 3 - Unit 3', N'He goes to work ______ motorcycle.', N'by', N'in', N'with', N'at';
+
+PRINT N'--- Unit 4: Our Senses ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'I use my ______ to see.', N'eyes', N'ears', N'nose', N'mouth';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'I use my ______ to hear.', N'ears', N'eyes', N'hands', N'legs';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'I use my nose to ______.', N'smell', N'taste', N'touch', N'look';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The rabbit feels ______.', N'soft', N'hard', N'loud', N'quiet';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The rock feels ______.', N'hard', N'soft', N'sweet', N'sour';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The music is too ______.', N'loud', N'soft', N'tasty', N'smelly';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The flowers look ______.', N'beautiful', N'ugly', N'loud', N'quiet';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The garbage smells ______.', N'bad', N'good', N'nice', N'sweet';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The lemon tastes ______.', N'sour', N'salty', N'spicy', N'hot';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Did you ______ the thunder?', N'hear', N'smell', N'touch', N'taste';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The rainbow looks ______.', N'colorful', N'loud', N'bad', N'tasty';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Smoke smells like ______ wood.', N'burnt', N'fresh', N'clean', N'sweet';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Durian has a strong ______.', N'smell', N'sound', N'look', N'touch';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Please be ______ in the library.', N'quiet', N'loud', N'noisy', N'fast';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'I touch with my ______.', N'hands', N'eyes', N'ears', N'nose';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The drum sounds ______.', N'loud', N'soft', N'quiet', N'bad';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Does it taste good? - Yes, it ______.', N'does', N'is', N'do', N'are';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'The pillow is ______.', N'soft', N'hard', N'sharp', N'loud';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Look ______ the beautiful picture.', N'at', N'in', N'on', N'for';
+EXEC #AddFillBlank N'Lớp 3 - Unit 4', N'Blind people cannot ______.', N'see', N'hear', N'smell', N'touch';
+
+PRINT N'--- Unit 5: Our Health ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'What is the ______ with you?', N'matter', N'wrong', N'problem', N'bad';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'I have a ______.', N'headache', N'head', N'happy', N'hungry';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'You should see a ______.', N'doctor', N'teacher', N'farmer', N'driver';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'He has a sore ______.', N'throat', N'hand', N'hair', N'shoe';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'You should ______ some medicine.', N'take', N'eat', N'drink', N'do';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'She has a high ______.', N'fever', N'heat', N'hot', N'cold';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'I have a ______ nose.', N'runny', N'running', N'rainy', N'sunny';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'You should ______ your hands.', N'wash', N'watch', N'play', N'eat';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'Don''t eat too much ______.', N'candy', N'water', N'vegetable', N'rice';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'You should ______ in bed.', N'rest', N'run', N'jump', N'dance';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'My tooth hurts. I have a ______.', N'toothache', N'headache', N'backache', N'earache';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'Drink plenty of ______.', N'water', N'soda', N'coffee', N'tea';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'Exercise is ______ for you.', N'good', N'bad', N'sad', N'sick';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'I ______ feel well.', N'don''t', N'not', N'am', N'isn''t';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'Did you ______ the medicine?', N'take', N'eat', N'drink', N'go';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'I have a stomachache. My ______ hurts.', N'stomach', N'head', N'leg', N'arm';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'You look ______.', N'tired', N'tire', N'tiring', N'sleep';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'You shouldn''t stay up ______.', N'late', N'early', N'morning', N'noon';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'Cover your mouth when you ______.', N'cough', N'laugh', N'smile', N'eat';
+EXEC #AddFillBlank N'Lớp 3 - Unit 5', N'Healthy food makes us ______.', N'strong', N'weak', N'sick', N'tired';
+
+PRINT N'--- Unit 6: The World of School ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'We read books in the ______.', N'library', N'gym', N'canteen', N'pool';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I have math ______ Monday.', N'on', N'in', N'at', N'of';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'My favorite subject is ______.', N'English', N'football', N'game', N'sleep';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'We play sports in the ______.', N'gym', N'library', N'class', N'lab';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I went to the ______ yesterday.', N'zoo', N'go', N'goes', N'going';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'Did you ______ a video?', N'make', N'do', N'play', N'go';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I use a ______ in IT class.', N'computer', N'ball', N'book', N'pen';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'We learn about the past in ______.', N'history', N'math', N'music', N'art';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I draw pictures in ______ class.', N'art', N'math', N'PE', N'IT';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'Our school has a big ______.', N'playground', N'play', N'playing', N'played';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'My teacher is very ______.', N'kind', N'bad', N'angry', N'sad';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'We wear a ______ at school.', N'uniform', N'costume', N'pyjama', N'hat';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I joined a science ______.', N'club', N'class', N'room', N'house';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'What ______ do you have today?', N'subjects', N'games', N'toys', N'food';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I like to ______ the piano.', N'play', N'do', N'make', N'go';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'We eat lunch in the ______.', N'canteen', N'library', N'gym', N'lab';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'I do my ______ after school.', N'homework', N'housework', N'play', N'sleep';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'Did you go to school? - Yes, I ______.', N'did', N'do', N'does', N'done';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'We learn to sing in ______ class.', N'music', N'math', N'art', N'PE';
+EXEC #AddFillBlank N'Lớp 3 - Unit 6', N'The school year starts in ______.', N'September', N'July', N'May', N'January';
+
+PRINT N'--- Unit 7: The World of Work ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A ______ teaches students.', N'teacher', N'doctor', N'farmer', N'driver';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A doctor works in a ______.', N'hospital', N'school', N'farm', N'shop';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A ______ flies a plane.', N'pilot', N'driver', N'rider', N'worker';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'What do you want to ______?', N'be', N'do', N'make', N'have';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'I want to be a ______.', N'singer', N'sing', N'song', N'singing';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A farmer grows ______.', N'vegetables', N'cars', N'houses', N'clothes';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A ______ puts out fires.', N'firefighter', N'teacher', N'doctor', N'cook';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A chef ______ food.', N'cooks', N'eats', N'buys', N'sells';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A ______ builds houses.', N'builder', N'teacher', N'nurse', N'artist';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'An artist paints ______.', N'pictures', N'walls', N'cars', N'floors';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A vet helps sick ______.', N'animals', N'people', N'cars', N'computers';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A dentist fixes ______.', N'teeth', N'hair', N'eyes', N'ears';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A police officer ______ us safe.', N'keeps', N'makes', N'does', N'has';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'He works very ______.', N'hard', N'bad', N'lazy', N'slow';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A salesperson works in a ______.', N'shop', N'school', N'hospital', N'farm';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'I want to ______ people.', N'help', N'hurt', N'hit', N'sad';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A mechanic fixes ______.', N'cars', N'teeth', N'people', N'food';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'A baker makes ______.', N'bread', N'meat', N'fruit', N'soup';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'What does your father ______?', N'do', N'be', N'make', N'work';
+EXEC #AddFillBlank N'Lớp 3 - Unit 7', N'She wants to be a famous ______.', N'singer', N'sing', N'sang', N'song';
+
+PRINT N'--- Unit 8: Fantastic Holidays ---';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We will go to the ______.', N'beach', N'school', N'work', N'hospital';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'I will ______ my grandma.', N'visit', N'see', N'watch', N'look';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We eat ______ cake at Mid-Autumn.', N'moon', N'sun', N'star', N'sky';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'Children get lucky ______ at Tet.', N'money', N'candy', N'toy', N'book';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We will stay at a ______.', N'hotel', N'school', N'shop', N'park';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'Go ______ and turn left.', N'straight', N'street', N'right', N'back';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'The market is on your ______.', N'right', N'write', N'white', N'light';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'I will buy some ______.', N'souvenirs', N'money', N'hotel', N'beach';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We decorate the house ______ Tet.', N'before', N'after', N'during', N'when';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'Santa Claus comes at ______.', N'Christmas', N'Tet', N'Easter', N'Halloween';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We watch a ______ dance.', N'lion', N'tiger', N'cat', N'dog';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'I will ______ a sandcastle.', N'build', N'make', N'do', N'go';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'Where ______ you go?', N'will', N'do', N'did', N'does';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'It will be ______.', N'fun', N'sad', N'bad', N'boring';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'I wear a ______ for Halloween.', N'costume', N'uniform', N'suit', N'dress';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We will swim in the ______.', N'sea', N'sky', N'sand', N'mountain';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'Happy New ______!', N'Year', N'Day', N'Month', N'Week';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'I am going to ______ a trip.', N'take', N'do', N'make', N'go';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'See you ______ week.', N'next', N'last', N'past', N'before';
+EXEC #AddFillBlank N'Lớp 3 - Unit 8', N'We travel by ______.', N'plane', N'foot', N'walk', N'run';
+
+-- XÓA THỦ TỤC
+DROP PROCEDURE #AddFillBlank;
+
+PRINT N'✅ ĐÃ TẠO XONG 180 CÂU ĐIỀN TỪ (20 CÂU x 9 UNIT)!';
+GO
+
+-- ==========================================================
+-- BỔ SUNG: TẠO DỮ LIỆU CÁC MÀN CHƠI (GAMES)
+-- ==========================================================
+-- Chỉ chèn nếu chưa có để tránh lỗi trùng lặp
+IF NOT EXISTS (SELECT 1 FROM Games WHERE GameID = 1)
+    INSERT INTO Games (GameName, GameDescription, TimeLimit, PassScore) VALUES (N'Round 1: Matching', N'Nối từ vựng và nghĩa', 0, 5);
+
+IF NOT EXISTS (SELECT 1 FROM Games WHERE GameID = 2)
+    INSERT INTO Games (GameName, GameDescription, TimeLimit, PassScore) VALUES (N'Round 2: Scramble', N'Sắp xếp lại câu', 0, 5);
+
+IF NOT EXISTS (SELECT 1 FROM Games WHERE GameID = 3)
+    INSERT INTO Games (GameName, GameDescription, TimeLimit, PassScore) VALUES (N'Round 3: Multiple Choice', N'Trắc nghiệm ABCD', 0, 5);
+
+IF NOT EXISTS (SELECT 1 FROM Games WHERE GameID = 4)
+    INSERT INTO Games (GameName, GameDescription, TimeLimit, PassScore) VALUES (N'Round 4: Fill in Blank', N'Điền từ vào chỗ trống', 0, 5);
+
+PRINT N'✅ Đã kiểm tra và tạo 4 Game Round.';
+GO
+

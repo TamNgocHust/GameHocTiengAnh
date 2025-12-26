@@ -82,6 +82,7 @@
 
   <script>
     const API_URL = '/api/game';
+    // Mặc định lớp 5 nếu chưa chọn (để test)
     const selectedGrade = localStorage.getItem('selectedGrade') || 5; 
 
     document.getElementById('gradeLabel').textContent = `Danh sách bài học - Lớp ${selectedGrade}`;
@@ -97,25 +98,29 @@
         container.innerHTML = ''; 
 
         if (data.success && data.data.length > 0) {
-          data.data.forEach(unit => {
+          // --- LOGIC MỚI: DÙNG INDEX ĐỂ ĐÁNH SỐ ---
+          // Biến index sẽ chạy từ 0, 1, 2, 3... tương ứng với thứ tự bài học lấy được
+          data.data.forEach((unit, index) => {
             const btn = document.createElement('div');
             btn.className = 'unit-btn';
             
-            // Tách tên để hiển thị đẹp hơn
-            let uNum = `Unit ${unit.TopicID}`; 
+            // Số hiển thị chính là số thứ tự (0, 1, 2...)
+            // Bất chấp ID trong database là bao nhiêu
+            let displayNum = index; 
+
+            // Xử lý tên hiển thị (Bỏ phần "Unit X:" nếu có trong tên gốc)
             let uName = unit.TopicName;
-            
-            // Xử lý chuỗi "Unit 1: Animals" -> "Unit 1" và "Animals"
-            if(unit.TopicName.includes(':')) {
-                const parts = unit.TopicName.split(':');
-                uNum = parts[0];
-                uName = parts[1];
+            if (uName.includes(':')) {
+                uName = uName.split(':')[1].trim(); 
             }
 
-            btn.onclick = () => selectUnit(unit.TopicID);
+            // Gán sự kiện click
+            btn.onclick = function() {
+                selectUnit(unit.TopicID, displayNum);
+            };
             
             btn.innerHTML = `
-              <div class="unit-num">${uNum}</div>
+              <div class="unit-num">Unit ${displayNum}</div>
               <div class="unit-name">${uName}</div>
             `;
             container.appendChild(btn);
@@ -129,12 +134,18 @@
       }
     }
 
-    // --- SỬA LẠI HÀM NÀY ---
-    function selectUnit(unitId) {
-      // 1. Lưu bài học đã chọn
-      localStorage.setItem('currentUnitId', unitId);
+    function selectUnit(dbId, displayNum) {
+      console.log("Đã chọn:", dbId, "Hiển thị:", displayNum);
       
-      // 2. Chuyển sang trang chọn Độ khó (level.html) thay vì vào game luôn
+      // Xóa cache cũ
+      localStorage.removeItem('currentUnitId');
+      localStorage.removeItem('displayUnitNumber');
+
+      // Lưu cái mới
+      localStorage.setItem('currentUnitId', dbId);        // ID thật (để gọi API câu hỏi)
+      localStorage.setItem('displayUnitNumber', displayNum); // Số đẹp (để hiển thị Unit 0, 1...)
+      
+      // Chuyển trang
       window.location.href = 'level.html'; 
     }
 

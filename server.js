@@ -9,7 +9,7 @@ const gameRoutes = require('./routes/gameRoutes');
 const historyRoutes = require('./routes/historyRoutes'); 
 const leaderboardRoutes = require('./routes/leaderboardRoutes'); 
 const profileRoutes = require('./routes/profileRoutes');
-// const reviewRoutes = require('./routes/reviewRoutes'); 
+const reviewRoutes = require('./routes/reviewRoutes'); // ✅ Đã có (Tốt)
 
 const app = express();
 const PORT = 5000;
@@ -18,17 +18,11 @@ app.use(cors());
 app.use(express.json());
 
 // =============================================================
-// 📂 CẤU HÌNH ĐƯỜNG DẪN TĨNH (STATIC FILES) - QUAN TRỌNG
+// 📂 CẤU HÌNH ĐƯỜNG DẪN TĨNH
 // =============================================================
-
-// Dòng này giúp Server hiểu: "Hãy coi thư mục Frontend/screen là thư mục gốc của web"
-// Khi bạn gõ /login.html, nó sẽ tìm trong Frontend/screen/login.html
 app.use(express.static(path.join(__dirname, 'Frontend', 'screen')));
-
-// (Dự phòng) Nếu bạn lỡ để file ở folder Frontend (bên ngoài screen) thì nó tìm tiếp ở đây
 app.use(express.static(path.join(__dirname, 'Frontend')));
 
-// In ra để kiểm tra
 console.log("--------------------------------------------------");
 console.log("📂 Server đang phục vụ file giao diện từ:");
 console.log("   👉 " + path.join(__dirname, 'Frontend', 'screen'));
@@ -79,6 +73,8 @@ app.use('/api/game', gameRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/review', reviewRoutes); 
+
 
 // KHỞI ĐỘNG
 app.listen(PORT, () => {
