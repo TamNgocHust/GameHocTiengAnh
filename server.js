@@ -33,7 +33,7 @@ console.log("--------------------------------------------------");
 // KẾT NỐI DATABASE
 // =============================================================
 const dbConfig = {
-    user: 'GameUser',
+    user: 'GameUser1',
     password: '123456',
     server: 'DESKTOP-HRMHVJB\\SQLEXPRESS',
     database: 'GameHocTiengAnh1',

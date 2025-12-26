@@ -21,11 +21,11 @@ USE GameHocTiengAnh1;
 
 -- 2. Tạo tài khoản đăng nhập vào Server (Tên: GameUser, Mật khẩu: 123456)
 -- Lệnh này tự động BỎ QUA chính sách mật khẩu phức tạp
-CREATE LOGIN GameUser WITH PASSWORD = '123456', CHECK_POLICY = OFF;
+CREATE LOGIN GameUser1 WITH PASSWORD = '123456', CHECK_POLICY = OFF;
 
 
 -- 3. Tạo User trong Database từ tài khoản trên
-CREATE USER GameUser FOR LOGIN GameUser;
+CREATE USER GameUser1 FOR LOGIN GameUser1;
 
 
 -- 4. Cấp quyền Đọc (Select) và Ghi (Insert/Update) cho User này
@@ -297,7 +297,7 @@ INSERT INTO Classes (ClassName, GradeID, TeacherID) VALUES
         (N'Lớp 5B', @Grade5ID, @TeacherB_ID), -- GV Nguyễn Văn B
         (N'Lớp 5C', @Grade5ID, @TeacherC_ID), -- GV Nguyễn Văn C
         (N'Lớp 5D', @Grade5ID, @TeacherD_ID); -- GV Nguyễn Văn D
-
+go
 --Hàm thêm học sinh vào lớp
 CREATE PROCEDURE AddStudentToClass
     @StudentUsername NVARCHAR(100),
@@ -377,10 +377,10 @@ EXEC AddStudentToClass 'student37', N'Lớp 5D';
 EXEC AddStudentToClass 'student38', N'Lớp 5D';
 EXEC AddStudentToClass 'student39', N'Lớp 5D';
 EXEC AddStudentToClass 'student40', N'Lớp 5D';
-
+go
 
 USE GameHocTiengAnh1;
-
+go
 
 -- 1. Tạo Topic riêng cho Game Round 2
 INSERT INTO Topics (TopicName) VALUES (N'Game Round 2 Pool');
@@ -388,8 +388,8 @@ DECLARE @GameTopic2ID INT = SCOPE_IDENTITY(); -- Lấy ID vừa tạo
 
 -- 2. Tạo 1 câu hỏi "Container" chứa danh sách các câu cần sắp xếp
 -- QuestionType vẫn là 'scramble' (sắp xếp)
-INSERT INTO Questions (TopicID, QuestionText, QuestionType, HintText, CorrectAnswer)
-VALUES (@GameTopic2ID, N'Sắp xếp các từ xáo trộn thành câu hoàn chỉnh', 'scramble', N'Game Round 2', N'All Sentences');
+INSERT INTO Questions (TopicID, QuestionText, QuestionType, CorrectAnswer)
+VALUES (@GameTopic2ID, N'Sắp xếp các từ xáo trộn thành câu hoàn chỉnh', 'scramble', N'All Sentences');
 
 DECLARE @Q2_ID INT = SCOPE_IDENTITY();
 
@@ -778,7 +778,7 @@ A: I''ll [Action].',
      N'The Mid-Autumn Festival is next week. I''ll light lanterns.', @Unit8ID);
 
 PRINT N'✅ ĐÃ HOÀN TẤT CẬP NHẬT TOÀN BỘ 9 UNIT (0-8) CHO SÁCH CÁNH DIỀU!';
-
+go
 PRINT N'=== BẮT ĐẦU TẠO 20 CẶP CÂU HỎI (VOCAB + GRAMMAR) CHO MỖI UNIT ===';
 
 -- 1. DỌN DẸP DỮ LIỆU GAME CŨ (Chỉ xóa loại matching)
@@ -1411,7 +1411,7 @@ END
 PRINT N'✅ ĐÃ TẠO XONG 180 CÂU SẮP XẾP (20 CÂU x 9 UNIT)!';
 
 USE GameHocTiengAnh1;
-
+go
 PRINT N'=== BẮT ĐẦU TẠO DỮ LIỆU ROUND 3 (TRẮC NGHIỆM) ===';
 
 -- 1. DỌN DẸP DỮ LIỆU ROUND 3 CŨ (Để tránh trùng lặp)
@@ -1421,7 +1421,7 @@ PRINT N'🧹 Đã xóa câu hỏi trắc nghiệm cũ.';
 
 -- 2. TẠO THỦ TỤC TẠM ĐỂ CHÈN CÂU HỎI NHANH (Giúp code ngắn gọn)
 IF OBJECT_ID('tempdb..#AddQuiz') IS NOT NULL DROP PROCEDURE #AddQuiz;
-
+go
 
 CREATE PROCEDURE #AddQuiz
     @UnitName NVARCHAR(100), -- Tên Unit (VD: 'Unit 0')
@@ -1670,7 +1670,7 @@ PRINT N'✅ ĐÃ TẠO XONG 180 CÂU TRẮC NGHIỆM (20 CÂU x 9 UNIT)!';
 
 
 IF OBJECT_ID('tempdb..#AddFillBlank') IS NOT NULL DROP PROCEDURE #AddFillBlank;
-
+go
 
 CREATE PROCEDURE #AddFillBlank
     @UnitName NVARCHAR(100),
@@ -2852,6 +2852,232 @@ INSERT INTO QuestionOptions (QuestionID, OptionContent, IsCorrect) VALUES
 (@QuestionID, N'Let us play ball', 1);
 PRINT N'✅ ĐÃ HOÀN TẤT NẠP DỮ LIỆU (FULL UNIT 0-8) THEO ĐÚNG CẤU TRÚC YÊU CẦU!';
 
+PRINT N'=== BẮT ĐẦU NẠP VOCAB & GRAMMAR CHO LỚP 2 (CÁNH DIỀU) ===';
+
+-- 1. KHAI BÁO BIẾN ĐỂ LẤY ID CỦA CÁC UNIT (Tự động tìm theo tên chuẩn)
+DECLARE @U0 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 0: Getting Started');
+DECLARE @U1 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 1: My Classroom');
+DECLARE @U2 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 2: My Family');
+DECLARE @U3 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 3: My Body');
+DECLARE @U4 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 4: My Face');
+DECLARE @U5 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 5: Animals');
+DECLARE @U6 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 6: My House');
+DECLARE @U7 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 7: Clothes');
+DECLARE @U8 INT = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName = N'Lớp 2 (CD) - Unit 8: Toys');
+
+-- ==========================================================
+-- UNIT 0: GETTING STARTED
+-- ==========================================================
+IF @U0 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 0 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Hello', N'Xin chào', 'Interjection', N'Hello, I am Kim.', @U0),
+    (N'Goodbye', N'Tạm biệt', 'Interjection', N'Goodbye, teacher.', @U0),
+    (N'Stand up', N'Đứng lên', 'Phrase', N'Stand up, please.', @U0),
+    (N'Sit down', N'Ngồi xuống', 'Phrase', N'Sit down, please.', @U0),
+    (N'Listen', N'Lắng nghe', 'Verb', N'Listen to me.', @U0),
+    (N'Open', N'Mở ra', 'Verb', N'Open your book.', @U0),
+    (N'Close', N'Đóng lại', 'Verb', N'Close your book.', @U0),
+    (N'One', N'Số 1', 'Number', N'One book.', @U0),
+    (N'Two', N'Số 2', 'Number', N'Two pens.', @U0),
+    (N'Red', N'Màu đỏ', 'Color', N'It is red.', @U0),
+    (N'Blue', N'Màu xanh dương', 'Color', N'It is blue.', @U0),
+    (N'Yellow', N'Màu vàng', 'Color', N'It is yellow.', @U0);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Chào hỏi & Giới thiệu tên', N'Hello. I am + [Name].', N'Dùng để chào và giới thiệu tên mình.', N'Hello. I am Bill.', @U0),
+    (N'Hỏi thăm sức khỏe', N'How are you? - I am fine, thank you.', N'Hỏi và trả lời về sức khỏe.', N'How are you? I am fine.', @U0),
+    (N'Mệnh lệnh thức', N'[Verb] + please.', N'Yêu cầu ai đó làm gì một cách lịch sự.', N'Stand up, please.', @U0);
+END
+
+-- ==========================================================
+-- UNIT 1: MY CLASSROOM
+-- ==========================================================
+IF @U1 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 1 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Pencil', N'Bút chì', 'Noun', N'It is a pencil.', @U1),
+    (N'Pen', N'Bút mực', 'Noun', N'I have a pen.', @U1),
+    (N'Bag', N'Cặp sách', 'Noun', N'This is my bag.', @U1),
+    (N'Book', N'Quyển sách', 'Noun', N'Open your book.', @U1),
+    (N'Eraser', N'Cục tẩy', 'Noun', N'It is an eraser.', @U1),
+    (N'Ruler', N'Thước kẻ', 'Noun', N'This is a ruler.', @U1),
+    (N'Desk', N'Bàn học', 'Noun', N'Sit at your desk.', @U1),
+    (N'Chair', N'Cái ghế', 'Noun', N'Sit on the chair.', @U1),
+    (N'Door', N'Cửa ra vào', 'Noun', N'Open the door.', @U1),
+    (N'Window', N'Cửa sổ', 'Noun', N'Close the window.', @U1);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Hỏi đồ vật là gì', N'What is it? - It is a + [Noun].', N'Hỏi tên một đồ vật số ít.', N'What is it? It is a pencil.', @U1),
+    (N'Giới thiệu đồ vật của mình', N'This is my + [Noun].', N'Giới thiệu đồ vật thuộc sở hữu của mình.', N'This is my bag.', @U1);
+END
+
+-- ==========================================================
+-- UNIT 2: MY FAMILY
+-- ==========================================================
+IF @U2 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 2 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Dad', N'Bố', 'Noun', N'This is my dad.', @U2),
+    (N'Mom', N'Mẹ', 'Noun', N'I love my mom.', @U2),
+    (N'Grandma', N'Bà', 'Noun', N'She is my grandma.', @U2),
+    (N'Grandpa', N'Ông', 'Noun', N'He is my grandpa.', @U2),
+    (N'Brother', N'Anh/Em trai', 'Noun', N'This is my brother.', @U2),
+    (N'Sister', N'Chị/Em gái', 'Noun', N'She is my sister.', @U2),
+    (N'Uncle', N'Chú/Bác', 'Noun', N'He is my uncle.', @U2),
+    (N'Aunt', N'Cô/Dì', 'Noun', N'She is my aunt.', @U2);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Hỏi người (Who)', N'Who is this? - This is my + [Family Member].', N'Hỏi danh tính một người.', N'Who is this? This is my mom.', @U2),
+    (N'Câu hỏi xác nhận (Yes/No)', N'Is this your + [Noun]? - Yes, it is. / No, it isn''t.', N'Hỏi xác nhận xem có đúng không.', N'Is this your dad? Yes, it is.', @U2);
+END
+
+-- ==========================================================
+-- UNIT 3: MY BODY
+-- ==========================================================
+IF @U3 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 3 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Head', N'Đầu', 'Noun', N'Touch your head.', @U3),
+    (N'Arm', N'Cánh tay', 'Noun', N'This is my arm.', @U3),
+    (N'Leg', N'Chân', 'Noun', N'Shake your legs.', @U3),
+    (N'Hand', N'Bàn tay', 'Noun', N'Clap your hands.', @U3),
+    (N'Foot', N'Bàn chân', 'Noun', N'Stomp your feet.', @U3),
+    (N'Body', N'Cơ thể', 'Noun', N'Move your body.', @U3),
+    (N'Finger', N'Ngón tay', 'Noun', N'Point your finger.', @U3),
+    (N'Shoulder', N'Vai', 'Noun', N'Touch your shoulder.', @U3);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Giới thiệu bộ phận (Số ít)', N'This is my + [Body Part].', N'Chỉ vào 1 bộ phận cơ thể.', N'This is my head.', @U3),
+    (N'Giới thiệu bộ phận (Số nhiều)', N'These are my + [Body Parts]s.', N'Chỉ vào bộ phận có số lượng nhiều (tay, chân).', N'These are my arms.', @U3);
+END
+
+-- ==========================================================
+-- UNIT 4: MY FACE
+-- ==========================================================
+IF @U4 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 4 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Eye', N'Mắt', 'Noun', N'I have two eyes.', @U4),
+    (N'Nose', N'Mũi', 'Noun', N'Touch your nose.', @U4),
+    (N'Mouth', N'Miệng', 'Noun', N'Open your mouth.', @U4),
+    (N'Ear', N'Tai', 'Noun', N'Touch your ears.', @U4),
+    (N'Face', N'Khuôn mặt', 'Noun', N'Wash your face.', @U4),
+    (N'Hair', N'Tóc', 'Noun', N'My hair is black.', @U4),
+    (N'Teeth', N'Răng', 'Noun', N'Brush your teeth.', @U4);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Cấu trúc "I have"', N'I have + [Noun].', N'Nói về bộ phận mình có.', N'I have a nose. I have two eyes.', @U4),
+    (N'Mô tả đặc điểm', N'My + [Noun] + is + [Adjective].', N'Mô tả màu sắc hoặc tính chất.', N'My hair is black.', @U4);
+END
+
+-- ==========================================================
+-- UNIT 5: ANIMALS
+-- ==========================================================
+IF @U5 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 5 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Cat', N'Con mèo', 'Noun', N'I like cats.', @U5),
+    (N'Dog', N'Con chó', 'Noun', N'It is a dog.', @U5),
+    (N'Duck', N'Con vịt', 'Noun', N'The duck swims.', @U5),
+    (N'Bird', N'Con chim', 'Noun', N'The bird flies.', @U5),
+    (N'Cow', N'Con bò', 'Noun', N'The cow eats grass.', @U5),
+    (N'Pig', N'Con lợn', 'Noun', N'The pig is pink.', @U5),
+    (N'Chicken', N'Con gà', 'Noun', N'I see a chicken.', @U5),
+    (N'Horse', N'Con ngựa', 'Noun', N'The horse is big.', @U5);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Hỏi con vật', N'What is it? - It is a + [Animal].', N'Hỏi và trả lời tên con vật.', N'What is it? It is a duck.', @U5),
+    (N'Nói về sở thích', N'I like + [Animals]s.', N'Nói mình thích con vật nào.', N'I like cats.', @U5);
+END
+
+-- ==========================================================
+-- UNIT 6: MY HOUSE
+-- ==========================================================
+IF @U6 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 6 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'House', N'Ngôi nhà', 'Noun', N'This is my house.', @U6),
+    (N'Kitchen', N'Nhà bếp', 'Noun', N'Mom is in the kitchen.', @U6),
+    (N'Bedroom', N'Phòng ngủ', 'Noun', N'I sleep in the bedroom.', @U6),
+    (N'Bathroom', N'Phòng tắm', 'Noun', N'Wash hands in the bathroom.', @U6),
+    (N'Living room', N'Phòng khách', 'Noun', N'Watch TV in the living room.', @U6),
+    (N'Garden', N'Khu vườn', 'Noun', N'Dad is in the garden.', @U6);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Hỏi vị trí người', N'Where is + [Person]? - He/She is in the + [Room].', N'Hỏi xem ai đó đang ở đâu.', N'Where is Mom? She is in the kitchen.', @U6),
+    (N'Giới thiệu phòng', N'This is the + [Room].', N'Giới thiệu các phòng trong nhà.', N'This is the bedroom.', @U6);
+END
+
+-- ==========================================================
+-- UNIT 7: CLOTHES
+-- ==========================================================
+IF @U7 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 7 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Shirt', N'Áo sơ mi', 'Noun', N'I like this shirt.', @U7),
+    (N'T-shirt', N'Áo phông', 'Noun', N'My T-shirt is blue.', @U7),
+    (N'Pants', N'Quần dài', 'Noun', N'These are my pants.', @U7),
+    (N'Shorts', N'Quần đùi', 'Noun', N'I wear shorts.', @U7),
+    (N'Dress', N'Váy liền', 'Noun', N'She wears a dress.', @U7),
+    (N'Skirt', N'Chân váy', 'Noun', N'The skirt is red.', @U7),
+    (N'Hat', N'Mũ', 'Noun', N'I have a hat.', @U7),
+    (N'Shoes', N'Giày', 'Noun', N'My shoes are black.', @U7);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Đang mặc gì', N'I am wearing + [Clothes].', N'Mô tả trang phục mình đang mặc.', N'I am wearing a dress.', @U7),
+    (N'Câu hỏi Yes/No', N'Are these your + [Clothes]? - Yes, they are / No, they aren''t.', N'Hỏi xác nhận đồ vật số nhiều.', N'Are these your shoes? Yes, they are.', @U7);
+END
+
+-- ==========================================================
+-- UNIT 8: TOYS
+-- ==========================================================
+IF @U8 IS NOT NULL
+BEGIN
+    PRINT N'--- Đang nạp Unit 8 ---';
+    -- Vocabulary
+    INSERT INTO Vocabulary (Word, Meaning, WordType, Example, TopicID) VALUES 
+    (N'Teddy bear', N'Gấu bông', 'Noun', N'My teddy bear is soft.', @U8),
+    (N'Car', N'Ô tô', 'Noun', N'The car is fast.', @U8),
+    (N'Robot', N'Người máy', 'Noun', N'I have a robot.', @U8),
+    (N'Ball', N'Quả bóng', 'Noun', N'Kick the ball.', @U8),
+    (N'Kite', N'Cái diều', 'Noun', N'Fly the kite.', @U8),
+    (N'Bike', N'Xe đạp', 'Noun', N'Ride the bike.', @U8),
+    (N'Train', N'Tàu hỏa', 'Noun', N'I like trains.', @U8),
+    (N'Plane', N'Máy bay', 'Noun', N'The plane is big.', @U8);
+
+    -- Grammar
+    INSERT INTO Grammar (GrammarName, Structure, Usage, Example, TopicID) VALUES 
+    (N'Sở hữu (I have)', N'I have a + [Toy].', N'Khoe đồ chơi mình có.', N'I have a robot.', @U8),
+    (N'Hỏi sở thích đồ chơi', N'Do you like + [Toy]s? - Yes, I do / No, I don''t.', N'Hỏi xem bạn có thích đồ chơi đó không.', N'Do you like cars? Yes, I do.', @U8);
+END
+
+PRINT N'✅ ĐÃ HOÀN TẤT NẠP TỪ VỰNG & NGỮ PHÁP CHO LỚP 2!';
+GO
 USE GameHocTiengAnh1;
 GO
 
@@ -4415,4 +4641,3 @@ IF NOT EXISTS (SELECT 1 FROM Games WHERE GameID = 4)
 
 PRINT N'✅ Đã kiểm tra và tạo 4 Game Round.';
 GO
-

@@ -1,51 +1,53 @@
-const { connectDB, sql } = require('../config/db');
+const sql = require('mssql');
 
-// 1. Lấy danh sách Từ Vựng theo Unit
-exports.getVocabulary = async (req, res) => {
+// Lấy danh sách Từ vựng theo Unit
+const getVocab = async (req, res) => {
     try {
-        const { unitId } = req.params;
-        const pool = await connectDB();
+        const { unitId } = req.params; // Lấy ID từ link (VD: /vocab/1)
+        
+        // Nếu không có ID hoặc ID = 0 (tránh lỗi logic)
+        if (!unitId) return res.json([]);
 
-        // Tạo pattern tìm kiếm: "Unit 1:%" 
-        // (Để tránh tìm nhầm sang Unit 10, 11...)
-        const topicPattern = 'Unit ' + unitId + ':%'; 
+        const request = new sql.Request();
+        request.input('id', sql.Int, unitId);
 
-        const result = await pool.request()
-            .input('TopicParam', sql.NVarChar, topicPattern)
-            .query(`
-                SELECT Word, Meaning, Pronunciation, Example, WordType 
-                FROM Vocabulary 
-                WHERE TopicID = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE @TopicParam)
-            `);
+        // Gọi Database
+        const result = await request.query(`
+            SELECT * FROM Vocabulary 
+            WHERE TopicID = @id
+        `);
 
         res.json(result.recordset);
-
-    } catch (err) {
-        console.error('Lỗi Vocab:', err);
-        res.status(500).json({ error: err.message });
+    } catch (error) {
+        console.error("Lỗi lấy từ vựng:", error);
+        res.status(500).json({ message: "Lỗi Server khi lấy từ vựng" });
     }
 };
 
-// 2. Lấy danh sách Ngữ Pháp theo Unit
-exports.getGrammar = async (req, res) => {
+// Lấy danh sách Ngữ pháp theo Unit
+const getGrammar = async (req, res) => {
     try {
         const { unitId } = req.params;
-        const pool = await connectDB();
 
-        const topicPattern = 'Unit ' + unitId + ':%';
+        if (!unitId) return res.json([]);
 
-        const result = await pool.request()
-            .input('TopicParam', sql.NVarChar, topicPattern)
-            .query(`
-                SELECT GrammarName, Structure, Usage, Example
-                FROM Grammar 
-                WHERE TopicID = (SELECT TOP 1 TopicID FROM Topics WHERE TopicName LIKE @TopicParam)
-            `);
+        const request = new sql.Request();
+        request.input('id', sql.Int, unitId);
+
+        const result = await request.query(`
+            SELECT * FROM Grammar 
+            WHERE TopicID = @id
+        `);
 
         res.json(result.recordset);
-
-    } catch (err) {
-        console.error('Lỗi Grammar:', err);
-        res.status(500).json({ error: err.message });
+    } catch (error) {
+        console.error("Lỗi lấy ngữ pháp:", error);
+        res.status(500).json({ message: "Lỗi Server khi lấy ngữ pháp" });
     }
+};
+
+// Xuất hàm ra để route sử dụng (QUAN TRỌNG)
+module.exports = {
+    getVocab,
+    getGrammar
 };
