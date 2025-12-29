@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Round 2: Sentence Scramble - Mushroom Kingdom</title>
+<title>Round 2: Sentence Scramble - Survival Mode</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-    /* --- CSS STYLE GIỮ NGUYÊN --- */
+    /* --- CSS GIỮ NGUYÊN --- */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", Arial, sans-serif; }
 
     body {
@@ -20,7 +20,6 @@
     .bg-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 0; }
     .overlay-ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
     
-    /* User Info */
     .top-right {
         position: absolute; top: 15px; right: 20px;
         background: rgba(255, 245, 210, 0.95); padding: 8px 16px; border-radius: 999px;
@@ -31,7 +30,6 @@
     .logout-btn { cursor: pointer; padding: 4px 10px; border-radius: 999px; border: none; background: #ff4b3a; color: #fff; font-size: 0.85rem; box-shadow: 0 3px 0 #c53120; text-transform: uppercase; }
     .logout-btn:hover { transform: translateY(-1px); }
 
-    /* Back Button */
     .bottom-left { position: absolute; left: 20px; bottom: 15px; pointer-events: auto; }
     .btn-back { padding: 7px 16px; border-radius: 999px; border: none; background: #ffffff; color: #553300; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); text-decoration: none; font-weight: 600;}
     .btn-back:hover { transform: translateY(-1px); }
@@ -118,7 +116,7 @@
         margin: 5px;
     }
     .btn-home:hover { transform: translateY(-2px); }
-    .btn-primary { background: #4caf50; } /* Màu xanh lá cho nút NEXT */
+    .btn-primary { background: #4caf50; } 
     .btn-retry { background: #ff9800; }
     .btn-secondary { background: #9e9e9e; }
 
@@ -147,8 +145,9 @@
     <div class="game-header">
         <div class="game-title" id="gameTitleDisplay">🌊 Round 2: Trật tự câu</div>
         <div class="game-stats">
+            <div class="stat-box" style="color: #d32f2f;">Lỗi: <span id="wrongDisplay">0</span>/5</div>
             <div class="stat-box">Câu: <span id="questionCount">1</span>/10</div>
-            <div class="stat-box">Điểm: <span id="scoreDisplay">0</span></div>
+            <div class="stat-box">Đúng: <span id="scoreDisplay">0</span></div>
             <div class="stat-box">Còn lại: <span id="timerDisplay">--:--</span></div>
         </div>
     </div>
@@ -174,7 +173,7 @@
             <div class="result-time" id="resultTime">Thời gian: ...</div>
             
             <div id="resultButtons">
-                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -182,20 +181,24 @@
 <script>
     // ============ CẤU HÌNH API ============
     const BASE_API_URL = '/api/game/round2'; 
-    const SUBMIT_URL = '/api/game/submit-round2';
+    const SUBMIT_URL = '/api/game/submit-round2'; 
     
     // BIẾN TRẠNG THÁI
     let GAME_DURATION = 120;
     let unitId = null;
-    let selectedGrade = 5; // Mặc định lớp 5
+    let selectedGrade = 5; 
     let difficulty = 'normal';
 
     let sentencesData = [];
     let currentQuestionIndex = 0;
-    let currentScore = 0;
+    let currentScore = 0; // Số câu đúng
     let currentWords = [];
     let userArrangement = [];
     
+    // Logic mới: Survival
+    let wrongCount = 0;
+    const MAX_WRONG = 5;
+
     let timerInterval;
     let timeLeft = 0;
 
@@ -206,10 +209,9 @@
         const username = localStorage.getItem("username");
         document.getElementById("showUser").textContent = fullname || username || "Guest";
 
-        // Lấy Unit & Diff & Grade từ trang trước
-        unitId = localStorage.getItem("currentUnitId"); // Key: currentUnitId
+        unitId = localStorage.getItem("currentUnitId"); 
         difficulty = localStorage.getItem("gameConfig_Diff") || 'normal';
-        selectedGrade = localStorage.getItem("selectedGrade") || 5; // <--- LẤY LỚP
+        selectedGrade = localStorage.getItem("selectedGrade") || 5; 
 
         if (!unitId) {
             alert("Vui lòng chọn bài học trước!");
@@ -238,7 +240,6 @@
     // ============ API: LẤY CÂU HỎI ============
     async function fetchGameData(id) {
         try {
-            // GỬI KÈM PARAM GRADE LÊN SERVER
             const res = await fetch(`${BASE_API_URL}/${id}?grade=${selectedGrade}`);
             if (!res.ok) throw new Error(`Server Error: ${res.status}`);
             const data = await res.json();
@@ -252,7 +253,9 @@
                 sentencesData = data.data; 
                 currentQuestionIndex = 0;
                 currentScore = 0; 
+                wrongCount = 0; // Reset lỗi
                 document.getElementById("scoreDisplay").textContent = currentScore;
+                document.getElementById("wrongDisplay").textContent = wrongCount;
                 
                 document.getElementById("loadingOverlay").classList.add("hidden");
                 startTimer();
@@ -273,10 +276,10 @@
         timerInterval = setInterval(() => {
             timeLeft--;
             updateTimerDisplay();
+            // --- SỬA LOGIC HẾT GIỜ TẠI ĐÂY ---
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
-                alert("Hết giờ!");
-                finishGame();
+                finishGame(); // Hết giờ -> Chấm điểm luôn (Không auto thua)
             }
         }, 1000);
     }
@@ -307,7 +310,6 @@
         if (!rawContent) return;
 
         const fullSentence = rawContent.trim();
-        // Bỏ dấu câu cuối để tránh lộ
         const cleanSentence = fullSentence.replace(/[.!?]$/, ''); 
         let words = cleanSentence.split(/\s+/);
         
@@ -329,7 +331,6 @@
         answerZone.innerHTML = "";
         wordBank.innerHTML = "";
 
-        // Render Vùng Trả Lời
         if (userArrangement.length === 0) {
             const placeholder = document.createElement("span");
             placeholder.textContent = "Chọn từ bên dưới để xếp thành câu...";
@@ -343,7 +344,6 @@
             });
         }
 
-        // Render Ngân Hàng Từ
         currentWords.forEach((word, idx) => {
             wordBank.appendChild(createChip(word, () => moveToAnswer(idx)));
         });
@@ -379,7 +379,7 @@
         const userString = userArrangement.join(" ");
         const correctString = sentencesData[currentQuestionIndex].correctString;
 
-        if (userString === correctString) {
+        if (userString.toLowerCase() === correctString.toLowerCase()) {
             // --- ĐÚNG ---
             answerZone.classList.add("correct");
             currentScore += 1; 
@@ -391,13 +391,17 @@
             // --- SAI ---
             answerZone.classList.add("wrong");
             
-            // Trừ 1 điểm (nhưng không âm)
-            currentScore = Math.max(0, currentScore - 1);
-            document.getElementById("scoreDisplay").textContent = currentScore;
+            // Tăng số lỗi
+            wrongCount++;
+            document.getElementById("wrongDisplay").textContent = wrongCount;
 
-            // Rung lắc báo sai và cho phép sửa lại
             setTimeout(() => { 
                 answerZone.classList.remove("wrong"); 
+                // Kiểm tra thua cuộc (Sai > 5 lần)
+                if (wrongCount > MAX_WRONG) {
+                    stopTimer();
+                    showLose(`Bạn đã sai quá ${MAX_WRONG} lần!`);
+                }
             }, 800);
         }
     }
@@ -411,7 +415,7 @@
         }
     }
 
-    // ============ KẾT THÚC GAME ============
+    // ============ KẾT THÚC GAME & GỬI ĐIỂM ============
     async function finishGame() {
         stopTimer();
         
@@ -419,69 +423,112 @@
         const formattedTime = formatTimeUsed(timeUsed);
         const userId = localStorage.getItem("currentUserID");
 
+        // --- TÍNH ĐIỂM ---
+        // 1. Điểm kiếm được từ câu đúng (Mỗi câu 10 điểm)
+        let earnedScore = currentScore * 10;
+        
+        // 2. Điểm phạt từ lỗi sai (Mỗi lỗi trừ 10 điểm)
+        let penaltyScore = wrongCount * 10;
+
+        // 3. Tổng kết
+        let finalScore = earnedScore - penaltyScore;
+        if (finalScore < 0) finalScore = 0;
+
+        // --- ĐIỀU KIỆN QUA MÀN ---
+        // 1. Chưa sai quá 5 lần (wrongCount <= 5)
+        // 2. Điểm số >= 50
+        const isPassed = (wrongCount <= MAX_WRONG) && (finalScore >= 50);
+
+        if (isPassed) {
+            try {
+                const payload = {
+                    studentId: userId,
+                    gameId: 2, 
+                    topicId: unitId,
+                    timeTaken: timeUsed,
+                    totalQuestions: sentencesData.length,
+                    correctCount: currentScore,
+                    wrongCount: wrongCount
+                };
+
+                const res = await fetch(SUBMIT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+                // Dùng điểm server trả về (nếu có logic phức tạp hơn)
+                if (result.success) {
+                    finalScore = result.score; 
+                }
+                
+                showWin(finalScore, formattedTime);
+
+            } catch (e) {
+                console.error("Lỗi lưu điểm:", e);
+                showWin(finalScore, formattedTime);
+            }
+        } else {
+            // Trường hợp hết giờ nhưng điểm thấp hoặc sai nhiều
+            let reason = "Điểm quá thấp!";
+            if (wrongCount > MAX_WRONG) reason = `Sai quá ${MAX_WRONG} lần!`;
+            else if (timeLeft <= 0 && finalScore < 50) reason = "Hết giờ & chưa đủ điểm!";
+            
+            showLose(reason + ` (${finalScore} điểm)`);
+        }
+    }
+
+    // --- HIỂN THỊ KẾT QUẢ THẮNG ---
+    function showWin(score, formattedTime) {
+        const overlay = document.getElementById("resultOverlay");
         const title = document.getElementById("resultTitle");
         const msg = document.getElementById("resultMsg");
         const timeMsg = document.getElementById("resultTime");
         const btnContainer = document.getElementById("resultButtons");
 
-        // Logic Pass/Fail
-        const isPassed = currentScore >= 5;
+        title.textContent = "🎉 HOÀN THÀNH!";
+        title.style.color = "#4caf50";
         
-        title.textContent = isPassed ? "🎉 HOÀN THÀNH!" : "😢 RẤT TIẾC!";
-        title.style.color = isPassed ? "#4caf50" : "#f44336";
-        msg.textContent = `Tổng điểm: ${currentScore}/10`;
+        msg.innerHTML = `
+            <div style="font-size: 1.1rem; color: #555; margin-bottom: 5px;">Bạn sai ${wrongCount} câu</div>
+            <div style="font-size: 2.5rem; color: #d84315; font-weight: bold;">${score} Điểm</div>
+        `;
+        
         timeMsg.textContent = `Thời gian hoàn thành: ${formattedTime}`;
 
-        // Xóa nút cũ, tạo nút mới
-        btnContainer.innerHTML = ""; 
+        btnContainer.innerHTML = `
+            <button class="btn-home btn-primary" onclick="goToRound3()">Qua Round 3</button>
+            <button class="btn-home btn-secondary" style="margin-left: 10px" onclick="location.href='menu.html'">Về Menu</button>
+        `;
 
-        if (isPassed) {
-            // ĐẬU: Nút Qua Round 3
-            const btnNext = document.createElement("button");
-            btnNext.className = "btn-home btn-primary";
-            btnNext.textContent = "Qua Round 3";
-            btnNext.onclick = () => {
-                localStorage.setItem("gameConfig_Round", 3);
-                window.location.href = "round3.html"; 
-            };
-            btnContainer.appendChild(btnNext);
-        } else {
-            // RỚT: Nút Thử lại
-            const btnRetry = document.createElement("button");
-            btnRetry.className = "btn-home btn-retry";
-            btnRetry.textContent = "Thử lại ngay";
-            btnRetry.onclick = () => location.reload();
-            btnContainer.appendChild(btnRetry);
+        overlay.classList.remove("hidden");
+    }
 
-            // Nút Thoát
-            const btnExit = document.createElement("button");
-            btnExit.className = "btn-home btn-secondary";
-            btnExit.textContent = "Về Menu";
-            btnExit.onclick = () => window.location.href = "menu.html";
-            btnContainer.appendChild(btnExit);
-        }
+    // --- HIỂN THỊ THUA ---
+    function showLose(reason) {
+        const overlay = document.getElementById("resultOverlay");
+        const title = document.getElementById("resultTitle");
+        const msg = document.getElementById("resultMsg");
+        const timeMsg = document.getElementById("resultTime");
+        const btnContainer = document.getElementById("resultButtons");
 
-        document.getElementById("resultOverlay").classList.remove("hidden");
+        overlay.classList.remove("hidden");
+        title.textContent = "😭 GAME OVER!";
+        title.style.color = "#d32f2f";
+        
+        msg.innerHTML = `<span style="font-size:1.2rem">${reason}</span><br>Không được tính điểm ván này.`;
+        timeMsg.textContent = "";
 
-        // Lưu điểm vào DB (GỬI KÈM UNIT ID ĐỂ TRÁNH NULL)
-        try {
-            console.log("Submitting:", { userId, currentScore, difficulty, unitId }); // Debug
+        btnContainer.innerHTML = `
+            <button class="btn-home btn-retry" onclick="location.reload()">🔄 Chơi Lại</button>
+            <button class="btn-home btn-secondary" style="margin-left: 10px" onclick="location.href='menu.html'">Thoát</button>
+        `;
+    }
 
-            await fetch(SUBMIT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userId,
-                    score: currentScore,
-                    timeTaken: timeUsed,
-                    difficulty: difficulty,
-                    unitId: unitId // <--- BẮT BUỘC PHẢI CÓ
-                })
-            });
-            console.log("Đã lưu kết quả.");
-        } catch (e) {
-            console.error("Lỗi lưu điểm:", e);
-        }
+    function goToRound3() {
+        localStorage.setItem("gameConfig_Round", 3);
+        window.location.href = "round3.html"; 
     }
 </script>
 

@@ -1,25 +1,26 @@
-// File: routes/gameRoutes.js
 const express = require('express');
 const router = express.Router();
-const gameController = require('../controllers/gameController'); // Đảm bảo đường dẫn trỏ đúng file controller của bạn
+const gameController = require('../controllers/gameController'); 
 
-// API lấy danh sách bài học theo khối lớp (VD: /api/game/units?grade=5)
+// API lấy danh sách bài học
 router.get('/units', gameController.getUnitsByGrade);
 
 // --- ROUND 1: Nối từ ---
 router.get('/round1/:unitId', gameController.getRound1Data);
-router.post('/submit-round1', gameController.submitRound1);
+// Sửa thành saveGameResult để khớp với Controller
+router.post('/submit-round1', gameController.saveGameResult); 
 
 // --- ROUND 2: Sắp xếp câu ---
 router.get('/round2/:unitId', gameController.getRound2Data);
-router.post('/submit-round2', gameController.submitRound2);
+// Nếu chưa viết hàm riêng, có thể tạm dùng saveGameResult
+router.post('/submit-round2', gameController.saveGameResult); 
 
-// --- ROUND 3: Trắc nghiệm (Cái bạn vừa làm) ---
+// --- ROUND 3: Trắc nghiệm ---
 router.get('/round3/:unitId', gameController.getRound3Data);
-router.post('/submit-round3', gameController.submitRound3);
+router.post('/submit-round3', gameController.saveGameResult);
 
-// --- ROUND 4: ĐIỀN TỪ ---
+// --- ROUND 4: Điền từ ---
 router.get('/round4/:unitId', gameController.getRound4Data);
-router.post('/submit-round4', gameController.submitRound4);
+router.post('/submit-round4', gameController.saveGameResult);
 
 module.exports = router;

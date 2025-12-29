@@ -6,7 +6,6 @@ const leaderboardController = {
         try {
             const { unitId, difficulty } = req.query;
 
-            // Nếu chưa chọn Unit, trả về rỗng
             if (!unitId) {
                 return res.json({ success: true, data: [] });
             }
@@ -15,43 +14,41 @@ const leaderboardController = {
             request.input('uid', sql.Int, unitId);
             request.input('diff', sql.NVarChar, difficulty || 'Normal');
 
-            // --- GIẢI THÍCH LOGIC MỚI (HƯỚNG B) ---
-            // Chúng ta Join thêm bảng Students, Classes và Topics ngay trong phần lọc dữ liệu (CTE)
-            // Và thêm điều kiện: c.GradeID = t.GradeID
-            // Nghĩa là: Khối của Lớp học sinh phải BẰNG Khối của Bài học thì mới được tính xếp hạng.
-
+            // --- LOGIC TÍNH TỔNG CHUẨN ---
             const query = `
-                WITH RankedPlays AS (
+                WITH BestPerRound AS (
+                    -- BƯỚC 1: Lấy điểm cao nhất của TỪNG Round (GameID) cho mỗi học sinh
                     SELECT 
                         ph.StudentID,
-                        ph.Score,
-                        ph.TimeTaken,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY ph.StudentID 
-                            ORDER BY ph.Score DESC, ph.TimeTaken ASC
-                        ) as rn
+                        ph.GameID,
+                        MAX(ph.Score) as RoundMaxScore,    -- Điểm cao nhất của Round này
+                        MIN(ph.TimeTaken) as RoundMinTime  -- Thời gian tốt nhất
                     FROM PlayHistory ph
-                    -- Join các bảng để lấy thông tin Khối Lớp
+                    -- Join bảng để lọc theo Khối Lớp
+                    JOIN Topics t ON ph.TopicID = t.TopicID
                     JOIN Students s ON ph.StudentID = s.StudentID
                     JOIN Classes c ON s.ClassID = c.ClassID
-                    JOIN Topics t ON ph.TopicID = t.TopicID
                     
                     WHERE ph.TopicID = @uid 
                       AND ph.Difficulty = @diff
-                      AND c.GradeID = t.GradeID -- <--- ĐIỀU KIỆN QUAN TRỌNG NHẤT CỦA HƯỚNG B
+                      AND c.GradeID = t.GradeID -- Chỉ lấy học sinh đúng khối
+                    
+                    GROUP BY ph.StudentID, ph.GameID
                 )
+                -- BƯỚC 2: Cộng tổng điểm các Round lại (SUM)
                 SELECT TOP 20
                     u.FullName,
-                    u.Username,
+                    u.UserName,
                     c.ClassName,
-                    rp.Score as TotalScore,
-                    rp.TimeTaken as TotalTime
-                FROM RankedPlays rp
-                JOIN Users u ON rp.StudentID = u.UserID
+                    SUM(b.RoundMaxScore) as TotalScore, -- Cộng dồn điểm: Round 1 + Round 2 + ...
+                    SUM(b.RoundMinTime) as TotalTime    -- Cộng dồn thời gian
+                FROM BestPerRound b
+                JOIN Users u ON b.StudentID = u.UserID
                 LEFT JOIN Students s ON u.UserID = s.StudentID
                 LEFT JOIN Classes c ON s.ClassID = c.ClassID
-                WHERE rp.rn = 1
-                ORDER BY rp.Score DESC, rp.TimeTaken ASC;
+                
+                GROUP BY u.UserID, u.FullName, u.UserName, c.ClassName
+                ORDER BY TotalScore DESC, TotalTime ASC;
             `;
 
             const result = await request.query(query);

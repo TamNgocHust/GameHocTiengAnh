@@ -20,7 +20,6 @@
     .header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom: 10px; }
     .title { font-size:1.8rem; font-weight:800; color:#d13625; text-transform:uppercase; text-shadow:0 2px 0 #ffd76b; }
     
-    /* CẬP NHẬT CSS THANH LỌC */
     .filter-bar { display: flex; gap: 10px; background: #fff3e0; padding: 10px; border-radius: 12px; border: 2px dashed #ffb74d; align-items: center; flex-wrap: wrap;}
     .filter-group { display: flex; flex-direction: column; gap: 4px; }
     .filter-label { font-size: 0.85rem; font-weight: 700; color: #e65100; margin-left: 4px; }
@@ -41,7 +40,6 @@
     .b1 { background: #fbc02d; box-shadow: 0 2px 5px rgba(251, 192, 45, 0.4); font-size: 1.2rem;} 
     .b2 { background: #90a4ae; box-shadow: 0 2px 5px rgba(144, 164, 174, 0.4); font-size: 1.1rem;} 
     .b3 { background: #ff8a65; box-shadow: 0 2px 5px rgba(255, 138, 101, 0.4); font-size: 1rem;} 
-    .me { background:#ec4899; width: auto; padding: 0 10px; border-radius: 99px;}
     
     .score-high { color: #d84315; font-weight: 800; font-size: 1.1rem; }
     .muted { color:#777; font-size: 0.9rem; }
@@ -63,7 +61,7 @@
     <div class="top-user">User: <span id="showUser" style="color:#d84315">...</span></div>
 
     <div class="header">
-        <div class="title">👑 Leaderboard</div>
+        <div class="title">👑 Bảng Xếp Hạng Tổng</div>
     </div>
 
     <div class="filter-bar">
@@ -102,8 +100,8 @@
             <tr>
               <th style="width:80px; text-align:center;">#</th>
               <th>Học sinh</th>
-              <th style="width:150px">Điểm Cao Nhất</th>
-              <th style="width:150px">Thời gian</th>
+              <th style="width:150px">Tổng Điểm</th>
+              <th style="width:150px">Tổng Thời gian</th>
             </tr>
           </thead>
           <tbody id="tbody">
@@ -126,7 +124,7 @@
     const currentUser = localStorage.getItem('fullname') || localStorage.getItem('username');
     const myUsername = localStorage.getItem('username');
 
-    // 1. Tải danh sách Unit khi đổi Lớp
+    // 1. Tải danh sách Unit
     async function loadUnits() {
         const grade = document.getElementById('gradeSelect').value;
         const unitSelect = document.getElementById('unitSelect');
@@ -165,15 +163,14 @@
 
         if (!unitId) return;
 
-        tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center; padding:20px">⏳ Đang tải xếp hạng...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center; padding:20px">⏳ Đang tính toán điểm...</td></tr>';
 
         try {
-            // Gọi API mới với UnitID và Difficulty
             const res = await fetch(`${API_LB}?unitId=${unitId}&difficulty=${difficulty}`);
             const data = await res.json();
 
             if (!data.success || data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center; padding:20px">Chưa có ai chơi bài này ở mức độ này. Hãy là người đầu tiên! 🏆</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center; padding:20px">Chưa có ai chơi bài này. Hãy là người đầu tiên! 🏆</td></tr>';
                 return;
             }
 
@@ -185,9 +182,9 @@
                 else if (rank === 2) badge = '<span class="badge b2">🥈</span>';
                 else if (rank === 3) badge = '<span class="badge b3">🥉</span>';
 
-                const isMe = (p.Username === myUsername);
+                const isMe = (p.UserName === myUsername); // Lưu ý: Backend trả về UserName (viết hoa N)
                 const rowStyle = isMe ? 'background-color:#fff9c4; border-left: 4px solid #ffb300;' : '';
-                const nameDisplay = p.FullName || p.Username;
+                const nameDisplay = p.FullName || p.UserName;
                 const char = nameDisplay.charAt(0).toUpperCase();
                 const className = p.ClassName ? `<span class="class-tag">${p.ClassName}</span>` : '';
 
@@ -204,7 +201,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="score-high">${p.TotalScore}/10</td>
+                        <td class="score-high">${p.TotalScore}</td>
                         <td class="muted">${formatTime(p.TotalTime)}</td>
                     </tr>
                 `;
@@ -225,8 +222,6 @@
 
     window.onload = () => {
         document.getElementById('showUser').textContent = currentUser || "Khách";
-        
-        // Mặc định chọn khối 5 và load
         document.getElementById('gradeSelect').value = "5"; 
         loadUnits();
     };
